@@ -8,31 +8,44 @@ int main()
 {
 	std::cout << std::boolalpha;
 
+	// false false false true true
 	gal::print_out(
 			std::cout, " ",
+			gal::is_arithmetic_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_arithmetic_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_arithmetic_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_arithmetic_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_arithmetic_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_arithmetic_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
 			) << std::endl;
 
+	// false false false true true
 	gal::print_out(
 			std::cout, " ",
+			// todo: why these three result is true?
+			gal::is_convertible_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_convertible_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_convertible_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_convertible_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_convertible_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_convertible_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
 	) << std::endl;
 
+	// false false false true true
 	gal::print_out(
 			std::cout, " ",
+			gal::is_integer_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_integer_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_integer_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_integer_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_integer_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_integer_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
 	) << std::endl;
 
+	// false false false false true
 	gal::print_out(
 			std::cout, " ",
+			gal::is_same_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_same_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_same_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_same_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_same_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
 			gal::is_same_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
 	) << std::endl;
 
@@ -45,8 +58,9 @@ int main()
 
 	gal::print_out(std::cout, " ", "init:", a, b, c, d, e, f) << std::endl;
 
-	gal::print_out(std::cout, " ", "max:", gal::max([](auto a, auto b){return a > b ? a : b;}, a, b, c, d, e, f)) << std::endl;
-	gal::print_out(std::cout, " ", "min:", gal::min([](auto a, auto b){return a < b ? a : b;}, a, b, c, d, e, f)) << std::endl;
+	gal::print_out(std::cout, " ", "max:", gal::max(a, b, c, d, e, f)) << std::endl;
+	gal::print_out(std::cout, " ", "min:", gal::min(a, b, c, d, e, f)) << std::endl;
+	gal::print_out(std::cout, " ", "has equal 3:", gal::unary_process([](auto& val){return val == 3;}, a, b, c, d, e, f).value()) << std::endl;
 
 	gal::print_out(std::cout, " ", "within:", gal::within(4, 2, a, b, c, d, e, f)) << std::endl;
 

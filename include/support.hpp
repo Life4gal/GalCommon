@@ -58,13 +58,31 @@ namespace gal {
 	template<typename T>
 	struct remove_const<T>
 	{
-		using type = std::remove_const_t<T>;
+		using type = typename std::remove_const<T>::type;
 	};
 
 	template<typename T, typename... Reset>
 	struct remove_const<std::tuple<T, Reset...>>
 	{
 		using type = typename remove_const<T, Reset...>::type;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_volatile
+	{
+		using type = std::tuple<typename remove_volatile<T>::type, typename remove_volatile<Reset...>::type>;
+	};
+
+	template<typename T>
+	struct remove_volatile<T>
+	{
+		using type = typename std::remove_volatile<T>::type;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_volatile<std::tuple<T, Reset...>>
+	{
+		using type = typename remove_volatile<T, Reset...>::type;
 	};
 
 	template<typename T, typename... Reset>
@@ -76,7 +94,7 @@ namespace gal {
 	template<typename T>
 	struct remove_reference<T>
 	{
-		using type = std::remove_reference_t<T>;
+		using type = typename std::remove_reference<T>::type;
 	};
 
 	template<typename T, typename... Reset>
@@ -88,13 +106,13 @@ namespace gal {
 	template<typename T, typename... Reset>
 	struct remove_cv
 	{
-		using type = std::tuple<typename remove_cv<T>::type, typename remove_cv<Reset...>::type>;
+		using type = typename remove_const<typename remove_volatile<T, Reset...>::type>::type;
 	};
 
 	template<typename T>
 	struct remove_cv<T>
 	{
-		using type = std::remove_cv_t<T>;
+		using type = typename remove_const<typename remove_volatile<T>::type>::type;
 	};
 
 	template<typename T, typename... Reset>
@@ -104,33 +122,15 @@ namespace gal {
 	};
 
 	template<typename T, typename... Reset>
-	struct remove_ref
-	{
-		using type = std::tuple<typename remove_ref<T>::type, typename remove_ref<Reset...>::type>;
-	};
-
-	template<typename T>
-	struct remove_ref<T>
-	{
-		using type = std::remove_reference_t<T>;
-	};
-
-	template<typename T, typename... Reset>
-	struct remove_ref<std::tuple<T, Reset...>>
-	{
-		using type = typename remove_ref<T, Reset...>::type;
-	};
-
-	template<typename T, typename... Reset>
 	struct remove_cv_ref
 	{
-		using type = typename remove_cv<typename remove_ref<T, Reset...>::type>::type;;
+		using type = typename remove_cv<typename remove_reference<T, Reset...>::type>::type;;
 	};
 
 	template<typename T>
 	struct remove_cv_ref<T>
 	{
-		using type = typename remove_cv<typename remove_ref<T>::type>::type;
+		using type = typename remove_cv<typename remove_reference<T>::type>::type;
 	};
 
 	template<typename T, typename... Reset>
@@ -140,22 +140,26 @@ namespace gal {
 	};
 
 	template<typename T, typename... Reset>
-	using remove_cv_t = typename remove_cv<T, Reset...>::type;
+	using remove_const_t = typename remove_const<T, Reset...>::type;
 	template<typename T, typename... Reset>
-	using remove_ref_t = typename remove_ref<T, Reset...>::type;
+	using remove_volatile_t = typename remove_volatile<T, Reset...>::type;
+	template<typename T, typename... Reset>
+	using remove_reference_t = typename remove_reference<T, Reset...>::type;
+	template<typename T, typename... Reset>
+	using remove_cv_t = typename remove_cv<T, Reset...>::type;
 	template<typename T, typename... Reset>
 	using remove_cv_ref_t = typename remove_cv_ref<T, Reset...>::type;
 
 	template<typename T, typename... Reset>
 	struct is_arithmetic
 	{
-		constexpr static bool value = std::is_arithmetic_v<T> && is_arithmetic<Reset...>::value;
+		constexpr static bool value = is_arithmetic<T>::value && is_arithmetic<Reset...>::value;
 	};
 
 	template<typename T>
 	struct is_arithmetic<T>
 	{
-		constexpr static bool value = std::is_arithmetic_v<T>;
+		constexpr static bool value = std::is_arithmetic<T>::value;
 	};
 
 	template<typename T, typename... Reset>
@@ -168,14 +172,14 @@ namespace gal {
 	template<typename U, typename T, typename... Reset>
 	struct is_convertible
 	{
-		constexpr static bool value = std::is_convertible_v<T, U> && is_convertible<U, Reset...>::value;
+		constexpr static bool value = is_convertible<U, T>::value && is_convertible<U, Reset...>::value;
 	};
 
 	// is second template arg convertible to first?(not first to second)
 	template<typename U, typename T>
 	struct is_convertible<U, T>
 	{
-		constexpr static bool value = std::is_convertible_v<T, U>;
+		constexpr static bool value = std::is_convertible<T, U>::value;
 	};
 
 	template<typename U, typename T, typename... Reset>
@@ -187,7 +191,7 @@ namespace gal {
 	template<typename T, typename... Reset>
 	struct is_integer
 	{
-		constexpr static bool value = std::numeric_limits<T>::is_integer && is_integer<Reset...>::value;
+		constexpr static bool value = is_integer<T>::value && is_integer<Reset...>::value;
 	};
 
 	template<typename T>
@@ -206,13 +210,13 @@ namespace gal {
 	template<typename U, typename T, typename... Reset>
 	struct is_same
 	{
-		constexpr static bool value = std::is_same_v<T, U> && is_same<U, Reset...>::value;
+		constexpr static bool value = is_same<U, T>::value && is_same<U, Reset...>::value;
 	};
 
 	template<typename U, typename T>
 	struct is_same<U, T>
 	{
-		constexpr static bool value = std::is_same_v<T, U>;
+		constexpr static bool value = std::is_same<T, U>::value;
 	};
 
 	template<typename U, typename T, typename... Reset>
@@ -230,78 +234,89 @@ namespace gal {
 	template<typename U, typename T, typename... Reset>
 	constexpr bool is_same_v = is_same<U, T, Reset...>::value;
 
-	template<typename Pred, typename T, typename... More>
-	void invoke(Pred pred, T t, More... more)
+	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T>>>
+	constexpr std::optional<std::remove_reference_t<T>> unary_process(Pred pred, T&& t, More&&... more)
 	{
-		pred(t);
+		if(pred(t))
+		{
+			// find the first suitable result
+			return t;
+		}
+		if constexpr (sizeof...(more) == 0)
+		{
+			// if not result, return null optional
+			return {};
+		}
+		else
+		{
+			return unary_process(pred, more...);
+		}
+	}
+
+	template<typename Pred, typename T, typename U, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T, U>>>
+	constexpr decltype(auto) binary_process(Pred pred, T&& t, U&& u, More&&... more)
+	{
+		if constexpr (sizeof...(more) == 0)
+		{
+			// compare them, return the suitable result
+			return pred(t, u);
+		}
+		else
+		{
+			return binary_process(pred, pred(std::forward<T>(t), std::forward<T>(u)), more...);
+		}
+	}
+
+	template<typename Pred, typename T, typename... More>
+	constexpr void unary_invoke(Pred pred, T&& t, More&&... more)
+	{
+		pred(std::forward<T>(t));
 		if constexpr (sizeof...(more) == 0)
 		{
 			return;
 		}
 		else
 		{
-			invoke(pred, more...);
+			unary_invoke(pred, more...);
 		}
 	}
 
-	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...>>>
-	constexpr T max(Pred pred, T t, More... more)
+	template<typename Pred, typename T, typename U, typename... More>
+	constexpr void binary_invoke(Pred pred, T&& t, U&& u, More&&... more)
 	{
+		pred(std::forward<T>(t), std::forward<U>(u));
 		if constexpr (sizeof...(more) == 0)
 		{
-			return t;
+			return;
 		}
 		else
 		{
-			return pred(t, max(pred, more...));
+			binary_invoke(pred, t, more...);
 		}
 	}
 
-	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...>>>
-	constexpr T min(Pred pred, T t, More... more)
+	template<typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...>>>
+	constexpr T max(T t, More... more)
 	{
-		if constexpr (sizeof...(more) == 0)
-		{
-			return t;
-		}
-		else
-		{
-			return pred(t, min(pred, more...));
-		}
+		return binary_process([](const auto& a, const auto& b){return a > b ? a : b;}, t, more...);
+	}
+
+	template<typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...>>>
+	constexpr T min(T t, More... more)
+	{
+		return binary_process([](const auto& a, const auto& b){return b > a ? a : b;}, t, more...);
 	}
 
 	template<typename Max, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...>>>
 	constexpr void clamp_max(Max max, T& val, More&... more)
 	{
-		if(val > max)
-		{
-			val = max;
-		}
-		if constexpr (sizeof...(more) == 0)
-		{
-			return;
-		}
-		else
-		{
-			clamp_max(max, more...);
-		}
+		binary_invoke([](auto& max, auto& val){if(val > max) val = max;}, max, val, more...);
 	}
 
 	template<typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Min, T, More...>>>
 	constexpr void clamp_min(Min min, T& val, More&... more)
 	{
-		if(val < min)
-		{
-			val = min;
-		}
-		if constexpr (sizeof...(more) == 0)
-		{
-			return;
-		}
-		else
-		{
-			clamp_min(min, more...);
-		}
+		binary_invoke([](auto& min, auto& val){if(min > val) val = min;}, min, val, more...);
 	}
 
 	template<typename Max, typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...> && is_convertible_v<Min, T, More...>>>
