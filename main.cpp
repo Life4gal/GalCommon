@@ -49,6 +49,15 @@ int main()
 			gal::is_same_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
 	) << std::endl;
 
+	gal::print_out(
+			std::cout, " ",
+			"same tuple:",
+			gal::is_same_tuple<gal::remove_cv_ref_t<const int, const int&>,
+			        gal::remove_cv_ref_t<const volatile int, const volatile int&>>::value,
+			gal::is_same_tuple<gal::remove_cv_ref_t<const int>,
+					gal::remove_cv_ref_t<const volatile int>>::value
+			) << std::endl;
+
 	int a = 0;
 	int b = 1;
 	int c = 2;
@@ -57,17 +66,24 @@ int main()
 	int f = 5;
 
 	gal::print_out(std::cout, " ", "init:", a, b, c, d, e, f) << std::endl;
-
 	gal::print_out(std::cout, " ", "max:", gal::max(a, b, c, d, e, f)) << std::endl;
 	gal::print_out(std::cout, " ", "min:", gal::min(a, b, c, d, e, f)) << std::endl;
-	gal::print_out(std::cout, " ", "has equal 3:", gal::unary_process([](auto& val){return val == 3;}, a, b, c, d, e, f).value()) << std::endl;
+	gal::print_out(
+			std::cout, " ",
+			"has 42:",
+			gal::unary_determine([](const auto& val){return val == 42;}, 42, a, b, c, d, e, f)
+			) << std::endl;
+
+	gal::print_out(
+			std::cout, " ",
+			"is ascending:",
+			gal::binary_determine([](const auto& val1, const auto& val2){return val1 <= val2;}, a, b, c, d, e, f)
+	) << std::endl;
 
 	gal::print_out(std::cout, " ", "within:", gal::within(4, 2, a, b, c, d, e, f)) << std::endl;
 
-	gal::clamp_max(4, a, b, c, d, e, f);
-	gal::print_out(std::cout, " ", "clamp_max:", a, b, c, d, e, f) << std::endl;
-	gal::clamp_min(2, a, b, c, d, e, f);
-	gal::print_out(std::cout, " ", "clamp_min:", a, b, c, d, e, f) << std::endl;
+	gal::clamp(4, 2, a, b, c, d, e, f);
+	gal::print_out(std::cout, " ", "after clamp:", a, b, c, d, e, f) << std::endl;
 
 	gal::print_out(std::cout, " ", "within:", gal::within(4, 2, a, b, c, d, e, f)) << std::endl;
 

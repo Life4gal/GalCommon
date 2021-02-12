@@ -1,7 +1,7 @@
 #ifndef GALCOMMON_SUPPORT_HPP
 #define GALCOMMON_SUPPORT_HPP
 
-#include <chrono>
+#include <type_traits>
 #include <numeric>
 
 namespace gal {
@@ -206,7 +206,7 @@ namespace gal {
 		constexpr static bool value = is_integer<T, Reset...>::value;
 	};
 
-	// is the second template arg same with first?(not first with second)
+	// is_same<int, type1, type2, type3...>
 	template<typename U, typename T, typename... Reset>
 	struct is_same
 	{
@@ -219,10 +219,24 @@ namespace gal {
 		constexpr static bool value = std::is_same<T, U>::value;
 	};
 
+	// is the tuple pack's type equal given type? (like tuple<int, int, int> is the same as int)
 	template<typename U, typename T, typename... Reset>
 	struct is_same<U, std::tuple<T, Reset...>>
 	{
 		constexpr static bool value = is_same<U, T, Reset...>::value;
+	};
+
+	template<typename T1, typename T2>
+	struct is_same_tuple
+	{
+		constexpr static bool value = is_same<T1, T2>::value;
+	};
+
+	// compare two tuple
+	template<typename... Tuple1, typename... Tuple2>
+	struct is_same_tuple<std::tuple<Tuple1...>, std::tuple<Tuple2...>>
+	{
+		constexpr static bool value = (is_same<Tuple1, Tuple2>::value && ...);
 	};
 
 	template<typename T, typename... Reset>
@@ -234,40 +248,84 @@ namespace gal {
 	template<typename U, typename T, typename... Reset>
 	constexpr bool is_same_v = is_same<U, T, Reset...>::value;
 
+	// Determine whether all data meets the conditions
+	// such as
+	//      bool less_than_42 = unary_determine([](auto& val){return val < 42;}, a, b, c, d, e, f);
 	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T>>>
-	constexpr std::optional<std::remove_reference_t<T>> unary_process(Pred pred, T&& t, More&&... more)
+	constexpr bool unary_determine(Pred pred, T&& t, More&&... more)
+	{
+		if constexpr (sizeof...(more) == 0)
+		{
+			return pred(std::forward<T>(t));
+		}
+		else
+		{
+			return unary_determine(pred, t) && unary_determine(pred, more...);
+		}
+	}
+
+	// Determine whether all data meets the conditions
+	// such as
+	//      bool ascending = binary_determine([](auto& val1, auto& val2){return val2 > val2;}, a, b, c, d, e, f);
+	template<typename Pred, typename A, typename B, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, A, B>>>
+	constexpr bool binary_determine(Pred pred, A&& a, B&& b, More&&... more)
+	{
+		if constexpr (sizeof...(more) == 0)
+		{
+			return pred(std::forward<A>(a), std::forward<B>(b));
+		}
+		else
+		{
+			return binary_determine(pred, a, b) && binary_determine(pred, b, more...);
+		}
+	}
+
+	// traverse all the data to find the first matching result, return it, you also need to set a default value
+	// such as
+	//      auto find_42 = unary_process([](auto& val){return val == 42;}, 42, a, b, c, d, e, f);
+	// if no matching value exist, return default value
+	template<typename Pred, typename U, typename T, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T>>>
+	constexpr decltype(auto) unary_process(Pred pred, U&& default_value, T&& t, More&&... more)
 	{
 		if(pred(t))
 		{
-			// find the first suitable result
+			// find the first matching result
 			return t;
 		}
 		if constexpr (sizeof...(more) == 0)
 		{
-			// if not result, return null optional
-			return {};
+			// if not result matched, return default_value
+			return default_value;
 		}
 		else
 		{
-			return unary_process(pred, more...);
+			return unary_process(pred, default_value, more...);
 		}
 	}
 
-	template<typename Pred, typename T, typename U, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T, U>>>
-	constexpr decltype(auto) binary_process(Pred pred, T&& t, U&& u, More&&... more)
+	// compare the first two data, get a qualified value, and then get the data one by one and compare with it
+	// such as
+	//      auto find_max = binary_process([](auto& val1, auto& val2){return val1 > val2 ? val1 : val2;}, a, b, c, d, e, f);
+	// return the best matching value
+	template<typename Pred, typename A, typename B, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, A, B>>>
+	constexpr decltype(auto) binary_process(Pred pred, A&& a, B&& b, More&&... more)
 	{
 		if constexpr (sizeof...(more) == 0)
 		{
-			// compare them, return the suitable result
-			return pred(t, u);
+			// compare two data, get a qualified value
+			return pred(std::forward<A>(a), std::forward<B>(b));
 		}
 		else
 		{
-			return binary_process(pred, pred(std::forward<T>(t), std::forward<T>(u)), more...);
+			// get the data one by one and compare with it
+			return binary_process(pred, binary_process(pred, a, b), more...);
 		}
 	}
 
-	template<typename Pred, typename T, typename... More>
+	// invoke pred with given parameter
+	// such as
+	//      unary_invoke([](auto& val){if(val > 42) val = 42;}, a, b, c, d, e, f);
+	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T>>>
 	constexpr void unary_invoke(Pred pred, T&& t, More&&... more)
 	{
 		pred(std::forward<T>(t));
@@ -281,17 +339,20 @@ namespace gal {
 		}
 	}
 
-	template<typename Pred, typename T, typename U, typename... More>
-	constexpr void binary_invoke(Pred pred, T&& t, U&& u, More&&... more)
+	// invoke pred with given parameter
+	// such as:
+	//      binary_invoke([](auto& val1, auto& val2){auto tmp = val1; val1 = val2; val2 = tmp;}, a, b, c, d, e, f);
+	template<typename Pred, typename A, typename B, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, A, B>>>
+	constexpr void binary_invoke(Pred pred, A&& a, B&& b, More&&... more)
 	{
-		pred(std::forward<T>(t), std::forward<U>(u));
+		pred(std::forward<A>(a), std::forward<B>(b));
 		if constexpr (sizeof...(more) == 0)
 		{
 			return;
 		}
 		else
 		{
-			binary_invoke(pred, t, more...);
+			binary_invoke(pred, b, more...);
 		}
 	}
 
@@ -310,42 +371,39 @@ namespace gal {
 	template<typename Max, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...>>>
 	constexpr void clamp_max(Max max, T& val, More&... more)
 	{
-		binary_invoke([](auto& max, auto& val){if(val > max) val = max;}, max, val, more...);
+		unary_invoke([max](auto& val){if(val > max) val = max;}, val, more...);
 	}
 
 	template<typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Min, T, More...>>>
 	constexpr void clamp_min(Min min, T& val, More&... more)
 	{
-		binary_invoke([](auto& min, auto& val){if(min > val) val = min;}, min, val, more...);
+		unary_invoke([min](auto& val){if(min > val) val = min;}, val, more...);
+	}
+
+	template<typename Max, typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...> && is_convertible_v<Min, T, More...>>>
+	constexpr void clamp(Max max, Min min, T& val, More&... more)
+	{
+		clamp_max(max, val, more...);
+		clamp_min(min, val, more...);
 	}
 
 	template<typename Max, typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...> && is_convertible_v<Min, T, More...>>>
 	constexpr bool within(Max max, Min min, T& val, More&... more)
 	{
-		bool result = (val >= min) && (val <= max);
-		if constexpr (sizeof...(more) == 0)
-		{
-			return result;
-		}
-		else
-		{
-			return result && within(max, min, more...);
-		}
+		return unary_determine([max, min](const auto& val){return max >= val && val >= min;}, val, more...);
 	}
 
 	template<typename T, typename... More, typename = std::enable_if_t<is_integer_v<T, More...>>>
 	constexpr void abs(T& val, More&... more)
 	{
-		constexpr auto bit_length = sizeof(T) * 8;
-		val = (val ^ (val >> (bit_length - 1))) - (val >> (bit_length - 1));
-		if constexpr (sizeof...(more) == 0)
-		{
-			return;
-		}
-		else
-		{
-			abs(more...);
-		}
+		unary_invoke(
+				[](auto& val)
+				{
+					constexpr auto bit_length = sizeof(T) * 8;
+					val = (val ^ (val >> (bit_length - 1))) - (val >> (bit_length - 1));
+				}
+				, val, more...
+		);
 	}
 
 	// safe version:
@@ -354,15 +412,8 @@ namespace gal {
 	template<typename OutStream, typename Delimiter, typename T, typename... More>
 	OutStream& print_out(OutStream& stream, Delimiter delimiter, T text, More... more)
 	{
-		stream << text << delimiter;
-		if constexpr (sizeof...(more) == 0)
-		{
-			return stream;
-		}
-		else
-		{
-			return print_out(stream, delimiter, more...);
-		}
+		unary_invoke([&stream, delimiter](const auto& text){stream << text << delimiter;}, text, more...);
+		return stream;
 	}
 
 	// safe version:
@@ -371,15 +422,8 @@ namespace gal {
 	template<typename InStream, typename T, typename... More>
 	InStream& print_in(InStream& stream, T& text, More&... more)
 	{
-		stream >> text;
-		if constexpr (sizeof...(more) == 0)
-		{
-			return stream;
-		}
-		else
-		{
-			return print_in(stream, more...);
-		}
+		unary_invoke([&stream](auto& text){stream >> text;}, text, more...);
+		return stream;
 	}
 
 	// equal(str1, str2)
@@ -387,10 +431,8 @@ namespace gal {
 	{
 		// the same address
 		if(lhs == rhs) return true;
-
 		// invalid address
 		if(!lhs || !rhs) return false;
-
 		// compare each character
 		// even the length may not equal, if the the sub-string is equal, we think these two string is equal
 		while(*lhs && *rhs)
