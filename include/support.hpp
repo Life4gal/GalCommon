@@ -37,14 +37,114 @@ namespace gal {
 		non_movable& operator=(const non_movable&) = default;
 	};
 
-	template<typename T>
-	struct remove_cv_ref
+	/*
+	 * template parameter pack
+	 *
+	 * for type:
+	 *      cannot create a type that is itself a parameter pack(like using type = pack...)
+	 *      if you need to extract the types, you can pull them out of the tuple
+	 *      better has a template specialization for tuple(for nested type)
+	 *
+	 * for value:
+	 *      better has a template specialization for tuple(for type above)
+	 */
+
+	template<typename T, typename... Reset>
+	struct remove_const
 	{
-		using type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
+		using type = std::tuple<typename remove_const<T>::type, typename remove_const<Reset...>::type>;
 	};
 
 	template<typename T>
-	using remove_cv_ref_t = typename remove_cv_ref<T>::type;
+	struct remove_const<T>
+	{
+		using type = std::remove_const_t<T>;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_const<std::tuple<T, Reset...>>
+	{
+		using type = typename remove_const<T, Reset...>::type;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_reference
+	{
+		using type = std::tuple<typename remove_reference<T>::type, typename remove_reference<Reset...>::type>;
+	};
+
+	template<typename T>
+	struct remove_reference<T>
+	{
+		using type = std::remove_reference_t<T>;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_reference<std::tuple<T, Reset...>>
+	{
+		using type = typename remove_reference<T, Reset...>::type;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_cv
+	{
+		using type = std::tuple<typename remove_cv<T>::type, typename remove_cv<Reset...>::type>;
+	};
+
+	template<typename T>
+	struct remove_cv<T>
+	{
+		using type = std::remove_cv_t<T>;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_cv<std::tuple<T, Reset...>>
+	{
+		using type = typename remove_cv<T, Reset...>::type;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_ref
+	{
+		using type = std::tuple<typename remove_ref<T>::type, typename remove_ref<Reset...>::type>;
+	};
+
+	template<typename T>
+	struct remove_ref<T>
+	{
+		using type = std::remove_reference_t<T>;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_ref<std::tuple<T, Reset...>>
+	{
+		using type = typename remove_ref<T, Reset...>::type;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_cv_ref
+	{
+		using type = typename remove_cv<typename remove_ref<T, Reset...>::type>::type;;
+	};
+
+	template<typename T>
+	struct remove_cv_ref<T>
+	{
+		using type = typename remove_cv<typename remove_ref<T>::type>::type;
+	};
+
+	template<typename T, typename... Reset>
+	struct remove_cv_ref<std::tuple<T, Reset...>>
+	{
+		using type = typename remove_cv_ref<T, Reset...>::type;
+	};
+
+	template<typename T, typename... Reset>
+	using remove_cv_t = typename remove_cv<T, Reset...>::type;
+	template<typename T, typename... Reset>
+	using remove_ref_t = typename remove_ref<T, Reset...>::type;
+	template<typename T, typename... Reset>
+	using remove_cv_ref_t = typename remove_cv_ref<T, Reset...>::type;
 
 	template<typename T, typename... Reset>
 	struct is_arithmetic
@@ -56,6 +156,12 @@ namespace gal {
 	struct is_arithmetic<T>
 	{
 		constexpr static bool value = std::is_arithmetic_v<T>;
+	};
+
+	template<typename T, typename... Reset>
+	struct is_arithmetic<std::tuple<T, Reset...>>
+	{
+		constexpr static bool value = is_arithmetic<T, Reset...>::value;
 	};
 
 	// is second/third/fourth... template arg convertible to first?
@@ -72,6 +178,12 @@ namespace gal {
 		constexpr static bool value = std::is_convertible_v<T, U>;
 	};
 
+	template<typename U, typename T, typename... Reset>
+	struct is_convertible<U, std::tuple<T, Reset...>>
+	{
+		constexpr static bool value = is_convertible<U, T, Reset...>::value;
+	};
+
 	template<typename T, typename... Reset>
 	struct is_integer
 	{
@@ -82,6 +194,12 @@ namespace gal {
 	struct is_integer<T>
 	{
 		constexpr static bool value = std::numeric_limits<T>::is_integer;
+	};
+
+	template<typename T, typename... Reset>
+	struct is_integer<std::tuple<T, Reset...>>
+	{
+		constexpr static bool value = is_integer<T, Reset...>::value;
 	};
 
 	// is the second template arg same with first?(not first with second)
@@ -97,6 +215,12 @@ namespace gal {
 		constexpr static bool value = std::is_same_v<T, U>;
 	};
 
+	template<typename U, typename T, typename... Reset>
+	struct is_same<U, std::tuple<T, Reset...>>
+	{
+		constexpr static bool value = is_same<U, T, Reset...>::value;
+	};
+
 	template<typename T, typename... Reset>
 	constexpr bool is_arithmetic_v = is_arithmetic<T, Reset...>::value;
 	template<typename U, typename T, typename... Reset>
@@ -105,6 +229,20 @@ namespace gal {
 	constexpr bool is_integer_v = is_integer<T, Reset...>::value;
 	template<typename U, typename T, typename... Reset>
 	constexpr bool is_same_v = is_same<U, T, Reset...>::value;
+
+	template<typename Pred, typename T, typename... More>
+	void invoke(Pred pred, T t, More... more)
+	{
+		pred(t);
+		if constexpr (sizeof...(more) == 0)
+		{
+			return;
+		}
+		else
+		{
+			invoke(pred, more...);
+		}
+	}
 
 	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...>>>
 	constexpr T max(Pred pred, T t, More... more)

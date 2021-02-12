@@ -8,7 +8,33 @@ int main()
 {
 	std::cout << std::boolalpha;
 
-	gal::print_out(std::cout, " ", "remove_cv_ref<const volatile int&> == int ?:", std::is_same_v<int, gal::remove_cv_ref_t<const volatile int&>>) << std::endl;
+	gal::print_out(
+			std::cout, " ",
+			gal::is_arithmetic_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_arithmetic_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_arithmetic_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
+			) << std::endl;
+
+	gal::print_out(
+			std::cout, " ",
+			gal::is_convertible_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_convertible_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_convertible_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
+	) << std::endl;
+
+	gal::print_out(
+			std::cout, " ",
+			gal::is_integer_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_integer_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_integer_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
+	) << std::endl;
+
+	gal::print_out(
+			std::cout, " ",
+			gal::is_same_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_same_v<int, gal::remove_ref_t<const int, const int&, const volatile int, const volatile int&>>,
+			gal::is_same_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
+	) << std::endl;
 
 	int a = 0;
 	int b = 1;
@@ -16,8 +42,6 @@ int main()
 	int d = 3;
 	int e = 4;
 	int f = 5;
-
-	gal::print_out(std::cout, " ", "type of a/b/c/d/e/f == int ?:", gal::is_same_v<int, decltype(a), decltype(b), decltype(c), decltype(d), decltype(e), decltype(f)>) << std::endl;
 
 	gal::print_out(std::cout, " ", "init:", a, b, c, d, e, f) << std::endl;
 
