@@ -1,8 +1,8 @@
-#include <iostream>
-#include <functional>
 #include <fstream>
+#include <functional>
+#include <iostream>
 
-#include "include/support.hpp"
+#include <support.hpp>
 
 int main()
 {

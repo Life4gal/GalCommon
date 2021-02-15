@@ -1,5 +1,5 @@
-#ifndef GALCOMMON_SUPPORT_HPP
-#define GALCOMMON_SUPPORT_HPP
+#ifndef GALLIBRARY_SUPPORT_HPP
+#define GALLIBRARY_SUPPORT_HPP
 
 #include <type_traits>
 #include <numeric>
@@ -452,4 +452,4 @@ namespace gal {
 	}
 }
 
-#endif//GALCOMMON_SUPPORT_HPP
+#endif//GALLIBRARY_SUPPORT_HPP
