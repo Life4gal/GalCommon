@@ -8,28 +8,14 @@ int main()
 {
 	std::cout << std::boolalpha;
 
-	using nested = gal::wrap_type_t<int, std::tuple<double, float>, long, short>;
-	using wrapper = gal::wrap_type_t<int, double, float, long, short>;
-
-	using wrapper_const = gal::add_const_t<wrapper>;
-	using normal_const = gal::add_const_t<int, double, float, long, short>;
-
-	nested w0;
-	wrapper w1;
-
-	wrapper_const w2;
-	normal_const w3;
-
-
-	std::cout << gal::is_same_v<gal::wrap_type_t<int, double, float>, gal::wrap_type_t<int, double, float>, gal::wrap_type_t<int, double, float>> << std::endl;
-
+	// true true true true
 	gal::print_out(
 			std::cout, " / ", "Test gal_type_traits:\n-->",
 			gal::is_same_v<
-			        gal::wrap_type_t<int, double, float, long, short>,
-			                gal::remove_pointer_t<gal::add_const_t<gal::add_pointer_t<int, double, float, long, short>>>,
-			                        gal::remove_reference_t<int&, double, float&, long, short>,
-			                                gal::remove_cv_ref_t<gal::add_const_t<volatile int, double, volatile float, long, short>>
+			        gal::wrap_type_t<int, double, float>,
+			                gal::remove_pointer_t<gal::add_const<gal::add_pointer<int, double, float>>>,
+			                        gal::remove_reference_t<int&, double, float&>,
+			                                gal::remove_cv_ref_t<gal::add_const<volatile int, double, volatile float>>
 					>,
 			gal::is_same_v<
 			        gal::remove_cv_ref_t<gal::add_const_t<int&, volatile double, float&>>,

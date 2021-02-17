@@ -11,40 +11,29 @@ namespace gal
 		{
 			template<typename... T>
 			using wrapper = std::tuple<T...>;
-
 			// wrapper_impl<type1, type2, type3...>
 			template<typename... T>
 			struct wrapper_impl
 			{
-				using type = wrapper<T...>;
+				using type = wrapper<typename wrapper_impl<T>::type...>;
 			};
-
 			// wrapper_impl<type>
 			template<typename T>
 			struct wrapper_impl<T>
 			{
 				using type = wrapper<T>;
 			};
-
-			// wrapper_impl<>
-			template<>
-			struct wrapper_impl<>
-			{
-				using type = wrapper<>;
-			};
-
 			// wrapper_impl<wrapper<type1, type2, type3...>>
 			template<typename... T>
 			struct wrapper_impl<wrapper<T...>>
 			{
 				using type = wrapper<T...>;
 			};
-
 			// wrapper_impl<wrapper<type1, type2, type3...>, wrapper<type11, type22, type33>...>
 			template<typename... T1, typename... T2, typename... More>
-			struct wrapper_impl<std::tuple<T1...>, std::tuple<T2...>, More...>
+			struct wrapper_impl<wrapper<T1...>, wrapper<T2...>, More...>
 			{
-				using type = typename wrapper_impl<std::tuple<T1..., T2...>, More...>::type;
+				using type = typename wrapper_impl<wrapper<T1..., T2...>, More...>::type;
 			};
 		}
 
@@ -79,6 +68,16 @@ namespace gal
 		template<bool cond, typename T>
 		using enable_if = std::enable_if<cond, T>;
 
+		/*
+		 * todo: ***** we need short-circuit conditional
+		 * lazy evaluation +
+		 *      template<template<typename...> class TrueTemplate, template<typename...> class FalseTemplate>
+		 * it may be possible to solve this problem, but it cannot be as easy to use as std::conditional
+		 *
+		 * conditional<is_enum_v<T>, underlying_type_t<T>, T>
+		 * this expression should be valid even when T is not enum
+		 * because in this case we will not evaluate the validity of underlying_type<T>
+		 */
 		template<bool cond, typename T, typename F>
 		using conditional = std::conditional<cond, T, F>;
 
@@ -319,16 +318,28 @@ namespace gal
 		using is_nothrow_swappable = std::is_nothrow_swappable<T>;
 	}
 
+	// wrapper
+	template<typename... T>
+	struct wrap_type
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = impl::wrap_catter<T...>;
+	};
+
+	// wrapper supporter
+	template<typename... T>
+	using wrap_type_t = typename wrap_type<T...>::type;
+
 	/*
 	 * template parameter pack
 	 *
 	 * for type:
 	 *      cannot create a type that is itself a parameter pack(like using type = pack...)
-	 *      if you need to extract the types, you can pull them out of the tuple
-	 *      better has a template specialization for impl::wrapper(for nested type)
+	 *      if you need to extract the types, you can pull them out of the wrapper
+	 *      better has a template specialization for wrap_type(for nested expression like Bar<Foo<T, U>>)
+	 *      better has a template<template<typename...>> class Wrapper specialization for nested wrapper
 	 *
 	 * for value:
-	 *      better has a template specialization for impl::wrapper(for type above)
+	 *      better has a template specialization for wrap_type(for type above)
 	 */
 
 	/*
@@ -354,17 +365,9 @@ namespace gal
 	 *      for wrap detail, see impl::wrapper and impl::wrap_catter
 	 */
 
-	// wrapper
-	template<typename... T>
-	struct wrap_type
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = impl::wrap_catter<T...>;
-	};
-
-	// wrapper supporter
-	template<typename... T>
-	using wrap_type_t = typename wrap_type<T...>::type;
-
+	/**********************************
+	 * Operations on traits
+	 **********************************/
 	template<typename T, typename... More>
 	struct negation
 	{
@@ -384,6 +387,12 @@ namespace gal
 	};
 
 	template<typename T, typename... More>
+	using negation_t = typename negation<T, More...>::type;
+
+	/**********************************
+	 * Miscellaneous transformations
+	 **********************************/
+	template<typename T, typename... More>
 	struct decay
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename decay<T>::type, typename decay<More...>::type>::type;
@@ -399,6 +408,12 @@ namespace gal
 	struct decay<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename decay<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct decay<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename decay<T...>::type;
 	};
 
 	template<bool cond, typename T, typename... More>
@@ -417,6 +432,12 @@ namespace gal
 	struct enable_if<cond, wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename enable_if<cond, T, More...>::type;
+	};
+
+	template<bool cond, typename... T, template<typename...> class Wrapper>
+	struct enable_if<cond, Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename enable_if<cond, T...>::type;
 	};
 
 	template<bool cond, typename T, typename F>
@@ -443,6 +464,20 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, T, typename wrap_type<F, Fs...>::type>::type;
 	};
 
+	template<bool cond, typename... T, typename F, template<typename...> class Wrapper>
+	struct conditional<cond, Wrapper<T...>, F>
+	{
+		// todo: test **
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, T..., F>::type;
+	};
+
+	template<bool cond, typename T, typename... F, template<typename...> class Wrapper>
+	struct conditional<cond, T, Wrapper<F...>>
+	{
+		// todo: test **
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, T, F...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct common_type
 	{
@@ -459,6 +494,12 @@ namespace gal
 	struct common_type<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename common_type<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct common_type<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename common_type<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -479,44 +520,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename underlying_type<T, More...>::type;
 	};
 
-	template<typename T, typename... More>
-	struct make_signed
+	template<typename... T, template<typename...> class Wrapper>
+	struct underlying_type<Wrapper<T...>>
 	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_signed<T>::type, typename make_signed<More...>::type>::type;
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename underlying_type<T...>::type;
 	};
 
-	template<typename T>
-	struct make_signed<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_signed<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct make_signed<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_signed<T, More...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct make_unsigned
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_unsigned<T>::type, typename make_unsigned<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct make_unsigned<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_unsigned<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct make_unsigned<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_unsigned<T, More...>::type;
-	};
-
-	template<typename T, typename... More>
-	using negation_t = typename negation<T, More...>::type;
 	template<typename T, typename... More>
 	using decay_t = typename decay<T, More...>::type;
 	template<bool cond, typename T, typename... More>
@@ -527,11 +536,10 @@ namespace gal
 	using common_type_t = typename common_type<T, More...>::type;
 	template<typename T, typename... More>
 	using underlying_type_t = typename underlying_type<T, More...>::type;
-	template<typename T, typename... More>
-	using make_signed_t = typename make_signed<T, More...>::type;
-	template<typename T, typename... More>
-	using make_unsigned_t = typename make_unsigned<T, More...>::type;
 
+	/**********************************
+	 * Type modifications
+	 **********************************/
 	template<typename T, typename... More>
 	struct remove_const
 	{
@@ -548,6 +556,12 @@ namespace gal
 	struct remove_const<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_const<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct remove_const<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_const<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -568,6 +582,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_const<T, More...>::type;
 	};
 
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_const<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_const<T...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct remove_volatile
 	{
@@ -584,6 +604,12 @@ namespace gal
 	struct remove_volatile<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_volatile<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct remove_volatile<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_volatile<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -604,6 +630,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_volatile<T, More...>::type;
 	};
 
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_volatile<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_volatile<T...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct remove_pointer
 	{
@@ -620,6 +652,12 @@ namespace gal
 	struct remove_pointer<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_pointer<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct remove_pointer<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_pointer<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -640,6 +678,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_pointer<T, More...>::type;
 	};
 
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_pointer<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_pointer<T...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct remove_reference
 	{
@@ -656,6 +700,12 @@ namespace gal
 	struct remove_reference<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_reference<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct remove_reference<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_reference<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -676,6 +726,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_lvalue_reference<T, More...>::type;
 	};
 
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_lvalue_reference<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_lvalue_reference<T...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct add_rvalue_reference
 	{
@@ -692,6 +748,60 @@ namespace gal
 	struct add_rvalue_reference<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_rvalue_reference<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_rvalue_reference<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_rvalue_reference<T...>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_signed
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_signed<T>::type, typename make_signed<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct make_signed<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_signed<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_signed<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_signed<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct make_signed<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_signed<T...>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_unsigned
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_unsigned<T>::type, typename make_unsigned<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct make_unsigned<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_unsigned<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_unsigned<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_unsigned<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct make_unsigned<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_unsigned<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -712,6 +822,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv<T, More...>::type;
 	};
 
+	template<typename... T, template<typename...> class Wrapper>
+	struct remove_cv<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv<T...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct add_cv
 	{
@@ -728,6 +844,12 @@ namespace gal
 	struct add_cv<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_cv<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -748,6 +870,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv_ref<T, More...>::type;
 	};
 
+	template<typename... T, template<typename...> class Wrapper>
+	struct remove_cv_ref<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv_ref<T...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct add_cv_lref
 	{
@@ -766,6 +894,12 @@ namespace gal
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_lref<T, More...>::type;
 	};
 
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_cv_lref<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_lref<T...>::type;
+	};
+
 	template<typename T, typename... More>
 	struct add_cv_rref
 	{
@@ -782,6 +916,12 @@ namespace gal
 	struct add_cv_rref<wrap_type<T, More...>>
 	{
 		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_rref<T, More...>::type;
+	};
+
+	template<typename... T, template<typename...> class Wrapper>
+	struct add_cv_rref<Wrapper<T...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_rref<T...>::type;
 	};
 
 	template<typename T, typename... More>
@@ -814,6 +954,11 @@ namespace gal
 	template<typename T, typename... More>
 	using add_cv_rref_t = typename add_cv_rref<T, More...>::type;
 
+	template<typename T, typename... More>
+	using make_signed_t = typename make_signed<T, More...>::type;
+	template<typename T, typename... More>
+	using make_unsigned_t = typename make_unsigned<T, More...>::type;
+
 	/*
 	 * for template<typename U, typename T, typename... More> struct Bar
 	 *      Bar<type, type1, type2, type3...>
@@ -843,6 +988,9 @@ namespace gal
 	 *          -> Bar<type, type1, type2, type3, type4, type5, type6>
 	 */
 
+	/**********************************
+	 * Type relationships
+	 **********************************/
 	// is_same<U, type1, type2, type3...>
 	template<typename U, typename T, typename... More>
 	struct is_same
@@ -1156,6 +1304,24 @@ namespace gal
 		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && is_nothrow_invocable_r<Rets..., Funcs..., Arg>::value;
 	};
 
+	template<typename U, typename T, typename... More>
+	constexpr bool is_same_v = is_same<U, T, More...>::value;
+	template<typename Base, typename Derived, typename... More>
+	constexpr bool is_base_of_v = is_base_of<Base, Derived, More...>::value;
+	template<typename From, typename To, typename... More>
+	constexpr bool is_convertible_v = is_convertible<From, To, More...>::value;
+	template<typename Func, typename Arg, typename... Args>
+	constexpr bool is_invocable_v = is_invocable<Func, Arg, Args...>::value;
+	template<typename Func, typename Arg, typename... Args>
+	constexpr bool is_nothrow_invocable_v = is_nothrow_invocable<Func, Arg, Args...>::value;
+	template<typename Ret, typename Func, typename Arg, typename... Args>
+	constexpr bool is_invocable_r_v = is_invocable_r<Ret, Func, Arg, Args...>::value;
+	template<typename Ret, typename Func, typename Arg, typename... Args>
+	constexpr bool is_nothrow_invocable_r_v = is_nothrow_invocable_r<Ret, Func, Arg, Args...>::value;
+
+	/**********************************
+	 * Primary type categories
+	 **********************************/
 	template<typename T, typename... More>
 	struct is_void
 	{
@@ -1417,6 +1583,36 @@ namespace gal
 	};
 
 	template<typename T, typename... More>
+	constexpr bool is_void_v = is_void<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_null_pointer_v = is_null_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_integral_v = is_integral<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_floating_point_v = is_floating_point<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_enum_v = is_enum<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_union_v = is_union<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_class_v = is_class<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_function_v = is_function<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_pointer_v = is_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_lvalue_reference_v = is_lvalue_reference<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_rvalue_reference_v = is_rvalue_reference<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_member_object_pointer_v = is_member_object_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_member_function_pointer_v = is_member_function_pointer<T, More...>::value;
+
+	/**********************************
+	 * Composite type categories
+	 **********************************/
+	template<typename T, typename... More>
 	struct is_fundamental
 	{
 		constexpr static bool value = is_fundamental<T>::value && is_fundamental<More...>::value;
@@ -1554,6 +1750,24 @@ namespace gal
 		constexpr static bool value = is_member_pointer<T, More...>::value;
 	};
 
+	template<typename T, typename... More>
+	constexpr bool is_fundamental_v = is_fundamental<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_arithmetic_v = is_arithmetic<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_scalar_v = is_scalar<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_object_v = is_object<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_compound_v = is_compound<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_reference_v = is_reference<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_member_pointer_v = is_member_pointer<T, More...>::value;
+
+	/**********************************
+	 * Type properties
+	 **********************************/
 	template<typename T, typename... More>
 	struct is_const
 	{
@@ -1814,6 +2028,36 @@ namespace gal
 		constexpr static bool value = is_unsigned<T, More...>::value;
 	};
 
+	template<typename T, typename... More>
+	constexpr bool is_const_v = is_const<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_volatile_v = is_volatile<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivial_v = is_trivial<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivial_copyable_v = is_trivial_copyable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_standard_layout_v = is_standard_layout<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool has_unique_object_representations_v = has_unique_object_representations<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_empty_v = is_empty<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_polymorphic_v = is_polymorphic<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_abstract_v = is_abstract<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_final_v = is_final<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_aggregate_v = is_aggregate<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_signed_v = is_signed<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_unsigned_v = is_unsigned<T, More...>::value;
+
+	/**********************************
+	 * Supported operations
+	 **********************************/
 	template<typename T, typename Arg, typename... Args>
 	struct is_constructible
 	{
@@ -2487,86 +2731,6 @@ namespace gal
 		constexpr static bool value = is_nothrow_swappable<T, More...>::value;
 	};
 
-	template<typename U, typename T, typename... More>
-	constexpr bool is_same_v = is_same<U, T, More...>::value;
-	template<typename Base, typename Derived, typename... More>
-	constexpr bool is_base_of_v = is_base_of<Base, Derived, More...>::value;
-	template<typename From, typename To, typename... More>
-	constexpr bool is_convertible_v = is_convertible<From, To, More...>::value;
-	template<typename Func, typename Arg, typename... Args>
-	constexpr bool is_invocable_v = is_invocable<Func, Arg, Args...>::value;
-	template<typename Func, typename Arg, typename... Args>
-	constexpr bool is_nothrow_invocable_v = is_nothrow_invocable<Func, Arg, Args...>::value;
-	template<typename Ret, typename Func, typename Arg, typename... Args>
-	constexpr bool is_invocable_r_v = is_invocable_r<Ret, Func, Arg, Args...>::value;
-	template<typename Ret, typename Func, typename Arg, typename... Args>
-	constexpr bool is_nothrow_invocable_r_v = is_nothrow_invocable_r<Ret, Func, Arg, Args...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_void_v = is_void<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_null_pointer_v = is_null_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_integral_v = is_integral<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_floating_point_v = is_floating_point<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_enum_v = is_enum<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_union_v = is_union<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_class_v = is_class<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_function_v = is_function<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_pointer_v = is_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_lvalue_reference_v = is_lvalue_reference<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_rvalue_reference_v = is_rvalue_reference<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_member_object_pointer_v = is_member_object_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_member_function_pointer_v = is_member_function_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_fundamental_v = is_fundamental<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_arithmetic_v = is_arithmetic<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_scalar_v = is_scalar<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_object_v = is_object<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_compound_v = is_compound<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_reference_v = is_reference<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_member_pointer_v = is_member_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_const_v = is_const<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_volatile_v = is_volatile<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_trivial_v = is_trivial<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_trivial_copyable_v = is_trivial_copyable<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_standard_layout_v = is_standard_layout<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool has_unique_object_representations_v = has_unique_object_representations<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_empty_v = is_empty<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_polymorphic_v = is_polymorphic<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_abstract_v = is_abstract<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_final_v = is_final<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_aggregate_v = is_aggregate<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_signed_v = is_signed<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_unsigned_v = is_unsigned<T, More...>::value;
 	template<typename T, typename Arg, typename... Args>
 	constexpr bool is_constructible_v = is_constructible<T, Arg, Args...>::value;
 	template<typename T, typename Arg, typename... Args>
@@ -2627,4 +2791,4 @@ namespace gal
 	constexpr bool is_nothrow_swappable_v = is_nothrow_swappable<T, More...>::value;
 }
 
-#endif//GALLIBRARY_TYPE_TRAITS_HPP
+#endif
