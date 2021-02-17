@@ -46,8 +46,6 @@ namespace gal
 			{
 				using type = typename wrapper_impl<std::tuple<T1..., T2...>, More...>::type;
 			};
-
-
 		}
 
 		template<typename... T>
@@ -55,7 +53,44 @@ namespace gal
 		template<typename... T>
 		using wrap_catter = typename detail::wrapper_impl<wrapper<T>...>::type;//decltype(std::tuple_cat(std::declval<wrapper<T>>()...));
 
+		/**********************************
+		 * Operations on traits
+		 **********************************/
+		/*
+		 * these two functions will become the cornerstone of constructing this library
+		 * we will use them replace fold-expression based on their short-circuit characteristics
+		 *      template<typename U, typename... T>
+		 *      (Bar<T, U>::value && ...) --> conjunction<Bar<T, U>...>> (::value is not needed)
+		 */
+		template<typename... T>
+		using conjunction = std::conjunction<T...>;
+		template<typename... T>
+		using disjunction = std::disjunction<T...>;
 
+		template<typename T>
+		using negation = std::negation<T>;
+
+		/**********************************
+		 * Miscellaneous transformations
+		 **********************************/
+		template<typename T>
+		using decay = std::decay<T>;
+
+		template<bool cond, typename T>
+		using enable_if = std::enable_if<cond, T>;
+
+		template<bool cond, typename T, typename F>
+		using conditional = std::conditional<cond, T, F>;
+
+		template<typename... T>
+		using common_type = std::common_type<T...>;
+
+		template<typename T>
+		using underlying_type = std::underlying_type<T>;
+
+		/**********************************
+		 * Type modifications
+		 **********************************/
 		template<typename T>
 		using remove_const = std::remove_const<T>;
 		template<typename T>
@@ -78,6 +113,14 @@ namespace gal
 		template<typename T>
 		using add_rvalue_reference = std::add_rvalue_reference<T>;
 
+		template<typename T>
+		using make_signed = std::make_signed<T>;
+		template<typename T>
+		using make_unsigned = std::make_unsigned<T>;
+
+		/**********************************
+		 * Type relationships
+		 **********************************/
 		template<typename T, typename U>
 		using is_same = std::is_same<T, U>;
 
@@ -96,6 +139,9 @@ namespace gal
 		template<typename Ret, typename Func, typename... Args>
 		using is_nothrow_invocable_r = std::is_nothrow_invocable_r<Ret, Func, Args...>;
 
+		/**********************************
+		 * Primary type categories
+		 **********************************/
 		template<typename T>
 		using is_void = std::is_void<T>;
 
@@ -135,6 +181,9 @@ namespace gal
 		template<typename T>
 		using is_member_function_pointer = std::is_member_function_pointer<T>;
 
+		/**********************************
+		 * Composite type categories
+		 **********************************/
 		template<typename T>
 		using is_fundamental = std::is_fundamental<T>;
 
@@ -156,6 +205,9 @@ namespace gal
 		template<typename T>
 		using is_member_pointer = std::is_member_pointer<T>;
 
+		/**********************************
+		 * Type properties
+		 **********************************/
 		template<typename T>
 		using is_const = std::is_const<T>;
 
@@ -195,6 +247,9 @@ namespace gal
 		template<typename T>
 		using is_unsigned = std::is_unsigned<T>;
 
+		/**********************************
+		 * Supported operations
+		 **********************************/
 		template<typename T, typename... Args>
 		using is_constructible = std::is_constructible<T, Args...>;
 		template<typename T, typename... Args>
@@ -309,6 +364,173 @@ namespace gal
 	// wrapper supporter
 	template<typename... T>
 	using wrap_type_t = typename wrap_type<T...>::type;
+
+	template<typename T, typename... More>
+	struct negation
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename negation<T>::type, typename negation<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct negation<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::negation<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct negation<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename negation<T, More...>::type;
+	};
+
+	template<typename T, typename... More>
+	struct decay
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename decay<T>::type, typename decay<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct decay<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::decay<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct decay<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename decay<T, More...>::type;
+	};
+
+	template<bool cond, typename T, typename... More>
+	struct enable_if
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename enable_if<cond, T>::type, typename enable_if<cond, More...>::type>::type;
+	};
+
+	template<bool cond, typename T>
+	struct enable_if<cond, T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::enable_if<cond, T>::type;
+	};
+
+	template<bool cond, typename T, typename... More>
+	struct enable_if<cond, wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename enable_if<cond, T, More...>::type;
+	};
+
+	template<bool cond, typename T, typename F>
+	struct conditional
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::conditional<cond, T, F>::type;
+	};
+
+	template<bool cond, typename T, typename... Ts, typename F, typename... Fs>
+	struct conditional<cond, wrap_type<T, Ts...>, wrap_type<F, Fs...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, typename wrap_type<T, Ts...>::type, typename wrap_type<F, Fs...>::type>::type;
+	};
+
+	template<bool cond, typename T, typename... Ts, typename F>
+	struct conditional<cond, wrap_type<T, Ts...>, F>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, typename wrap_type<T, Ts...>::type, F>::type;
+	};
+
+	template<bool cond, typename T, typename F, typename... Fs>
+	struct conditional<cond, T, wrap_type<F, Fs...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, T, typename wrap_type<F, Fs...>::type>::type;
+	};
+
+	template<typename T, typename... More>
+	struct common_type
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename common_type<T>::type, typename common_type<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct common_type<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::common_type<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct common_type<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename common_type<T, More...>::type;
+	};
+
+	template<typename T, typename... More>
+	struct underlying_type
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename underlying_type<T>::type, typename underlying_type<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct underlying_type<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::underlying_type<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct underlying_type<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename underlying_type<T, More...>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_signed
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_signed<T>::type, typename make_signed<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct make_signed<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_signed<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_signed<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_signed<T, More...>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_unsigned
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_unsigned<T>::type, typename make_unsigned<More...>::type>::type;
+	};
+
+	template<typename T>
+	struct make_unsigned<T>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_unsigned<T>::type;
+	};
+
+	template<typename T, typename... More>
+	struct make_unsigned<wrap_type<T, More...>>
+	{
+		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_unsigned<T, More...>::type;
+	};
+
+	template<typename T, typename... More>
+	using negation_t = typename negation<T, More...>::type;
+	template<typename T, typename... More>
+	using decay_t = typename decay<T, More...>::type;
+	template<bool cond, typename T, typename... More>
+	using enable_if_t = typename enable_if<cond, T, More...>::type;
+	template<bool cond, typename T, typename F>
+	using conditional_t = typename conditional<cond, T, F>::type;
+	template<typename T, typename... More>
+	using common_type_t = typename common_type<T, More...>::type;
+	template<typename T, typename... More>
+	using underlying_type_t = typename underlying_type<T, More...>::type;
+	template<typename T, typename... More>
+	using make_signed_t = typename make_signed<T, More...>::type;
+	template<typename T, typename... More>
+	using make_unsigned_t = typename make_unsigned<T, More...>::type;
 
 	template<typename T, typename... More>
 	struct remove_const
@@ -1735,18 +1957,674 @@ namespace gal
 		constexpr static bool value = is_default_constructible<T, More...>::value;
 	};
 
+	template<typename T, typename... More>
+	struct is_trivially_default_constructible
+	{
+		constexpr static bool value = is_trivially_default_constructible<T>::value && is_trivially_default_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_trivially_default_constructible<T>
+	{
+		constexpr static bool value = impl::is_trivially_default_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_default_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_trivially_default_constructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_default_constructible
+	{
+		constexpr static bool value = is_nothrow_default_constructible<T>::value && is_nothrow_default_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_nothrow_default_constructible<T>
+	{
+		constexpr static bool value = impl::is_nothrow_default_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_default_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_default_constructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_copy_constructible
+	{
+		constexpr static bool value = is_copy_constructible<T>::value && is_copy_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_copy_constructible<T>
+	{
+		constexpr static bool value = impl::is_copy_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_copy_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_copy_constructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_copy_constructible
+	{
+		constexpr static bool value = is_trivially_copy_constructible<T>::value && is_trivially_copy_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_trivially_copy_constructible<T>
+	{
+		constexpr static bool value = impl::is_trivially_copy_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_copy_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_trivially_copy_constructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_copy_constructible
+	{
+		constexpr static bool value = is_nothrow_copy_constructible<T>::value && is_nothrow_copy_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_nothrow_copy_constructible<T>
+	{
+		constexpr static bool value = impl::is_nothrow_copy_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_copy_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_copy_constructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_move_constructible
+	{
+		constexpr static bool value = is_move_constructible<T>::value && is_move_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_move_constructible<T>
+	{
+		constexpr static bool value = impl::is_move_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_move_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_move_constructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_move_constructible
+	{
+		constexpr static bool value = is_trivially_move_constructible<T>::value && is_trivially_move_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_trivially_move_constructible<T>
+	{
+		constexpr static bool value = impl::is_trivially_move_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_move_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_trivially_move_constructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_move_constructible
+	{
+		constexpr static bool value = is_nothrow_move_constructible<T>::value && is_nothrow_move_constructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_nothrow_move_constructible<T>
+	{
+		constexpr static bool value = impl::is_nothrow_move_constructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_move_constructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_move_constructible<T, More...>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_assignable
+	{
+		constexpr static bool value = is_assignable<U, T>::value && is_assignable<U, More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename U, typename T>
+	struct is_assignable<U, T>
+	{
+		constexpr static bool value = impl::is_assignable<T, U>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_assignable<U, wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_assignable<U, T, More...>::value;
+	};
+
+	template<typename U, typename... Us, typename T, typename... Ts>
+	struct is_assignable<wrap_type<U, Us...>, wrap_type<T, Ts...>>
+	{
+		constexpr static bool value = is_assignable<U, T>::value && (is_assignable<Us, Ts>::value && ...);
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_trivially_assignable
+	{
+		constexpr static bool value = is_trivially_assignable<U, T>::value && is_trivially_assignable<U, More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename U, typename T>
+	struct is_trivially_assignable<U, T>
+	{
+		constexpr static bool value = impl::is_trivially_assignable<T, U>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_trivially_assignable<U, wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_trivially_assignable<U, T, More...>::value;
+	};
+
+	template<typename U, typename... Us, typename T, typename... Ts>
+	struct is_trivially_assignable<wrap_type<U, Us...>, wrap_type<T, Ts...>>
+	{
+		constexpr static bool value = is_trivially_assignable<U, T>::value && (is_trivially_assignable<Us, Ts>::value && ...);
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_nothrow_assignable
+	{
+		constexpr static bool value = is_nothrow_assignable<U, T>::value && is_nothrow_assignable<U, More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename U, typename T>
+	struct is_nothrow_assignable<U, T>
+	{
+		constexpr static bool value = impl::is_nothrow_assignable<T, U>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_nothrow_assignable<U, wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_assignable<U, T, More...>::value;
+	};
+
+	template<typename U, typename... Us, typename T, typename... Ts>
+	struct is_nothrow_assignable<wrap_type<U, Us...>, wrap_type<T, Ts...>>
+	{
+		constexpr static bool value = is_nothrow_assignable<U, T>::value && (is_nothrow_assignable<Us, Ts>::value && ...);
+	};
+
+	template<typename T, typename... More>
+	struct is_copy_assignable
+	{
+		constexpr static bool value = is_copy_assignable<T>::value && is_copy_assignable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_copy_assignable<T>
+	{
+		constexpr static bool value = impl::is_copy_assignable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_copy_assignable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_copy_assignable<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_copy_assignable
+	{
+		constexpr static bool value = is_trivially_copy_assignable<T>::value && is_trivially_copy_assignable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_trivially_copy_assignable<T>
+	{
+		constexpr static bool value = impl::is_trivially_copy_assignable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_copy_assignable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_trivially_copy_assignable<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_copy_assignable
+	{
+		constexpr static bool value = is_nothrow_copy_assignable<T>::value && is_nothrow_copy_assignable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_nothrow_copy_assignable<T>
+	{
+		constexpr static bool value = impl::is_nothrow_copy_assignable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_copy_assignable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_copy_assignable<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_move_assignable
+	{
+		constexpr static bool value = is_move_assignable<T>::value && is_move_assignable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_move_assignable<T>
+	{
+		constexpr static bool value = impl::is_move_assignable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_move_assignable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_move_assignable<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_move_assignable
+	{
+		constexpr static bool value = is_trivially_move_assignable<T>::value && is_trivially_move_assignable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_trivially_move_assignable<T>
+	{
+		constexpr static bool value = impl::is_trivially_move_assignable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_move_assignable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_trivially_move_assignable<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_move_assignable
+	{
+		constexpr static bool value = is_nothrow_move_assignable<T>::value && is_nothrow_move_assignable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_nothrow_move_assignable<T>
+	{
+		constexpr static bool value = impl::is_nothrow_move_assignable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_move_assignable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_move_assignable<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_destructible
+	{
+		constexpr static bool value = is_destructible<T>::value && is_destructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_destructible<T>
+	{
+		constexpr static bool value = impl::is_destructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_destructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_destructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_destructible
+	{
+		constexpr static bool value = is_trivially_destructible<T>::value && is_trivially_destructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_trivially_destructible<T>
+	{
+		constexpr static bool value = impl::is_trivially_destructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_trivially_destructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_trivially_destructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_destructible
+	{
+		constexpr static bool value = is_nothrow_destructible<T>::value && is_nothrow_destructible<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_nothrow_destructible<T>
+	{
+		constexpr static bool value = impl::is_nothrow_destructible<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_destructible<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_destructible<T, More...>::value;
+	};
+
+	template<typename T, typename... More>
+	struct has_virtual_destructor
+	{
+		constexpr static bool value = has_virtual_destructor<T>::value && has_virtual_destructor<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct has_virtual_destructor<T>
+	{
+		constexpr static bool value = impl::has_virtual_destructor<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct has_virtual_destructor<wrap_type<T, More...>>
+	{
+		constexpr static bool value = has_virtual_destructor<T, More...>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_swappable_with
+	{
+		constexpr static bool value = is_swappable_with<U, T>::value && is_swappable_with<U, More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename U, typename T>
+	struct is_swappable_with<U, T>
+	{
+		constexpr static bool value = impl::is_swappable_with<T, U>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_swappable_with<U, wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_swappable_with<U, T, More...>::value;
+	};
+
+	template<typename U, typename... Us, typename T, typename... Ts>
+	struct is_swappable_with<wrap_type<U, Us...>, wrap_type<T, Ts...>>
+	{
+		constexpr static bool value = is_swappable_with<U, T>::value && (is_swappable_with<Us, Ts>::value && ...);
+	};
+
+	template<typename T, typename... More>
+	struct is_swappable
+	{
+		constexpr static bool value = is_swappable<T>::value && is_swappable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_swappable<T>
+	{
+		constexpr static bool value = impl::is_swappable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_swappable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_swappable<T, More...>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_nothrow_swappable_with
+	{
+		constexpr static bool value = is_nothrow_swappable_with<U, T>::value && is_nothrow_swappable_with<U, More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename U, typename T>
+	struct is_nothrow_swappable_with<U, T>
+	{
+		constexpr static bool value = impl::is_nothrow_swappable_with<T, U>::value;
+	};
+
+	template<typename U, typename T, typename... More>
+	struct is_nothrow_swappable_with<U, wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_swappable_with<U, T, More...>::value;
+	};
+
+	template<typename U, typename... Us, typename T, typename... Ts>
+	struct is_nothrow_swappable_with<wrap_type<U, Us...>, wrap_type<T, Ts...>>
+	{
+		constexpr static bool value = is_nothrow_swappable_with<U, T>::value && (is_nothrow_swappable_with<Us, Ts>::value && ...);
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_swappable
+	{
+		constexpr static bool value = is_nothrow_swappable<T>::value && is_nothrow_swappable<More...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
+	};
+
+	template<typename T>
+	struct is_nothrow_swappable<T>
+	{
+		constexpr static bool value = impl::is_nothrow_swappable<T>::value;
+	};
+
+	template<typename T, typename... More>
+	struct is_nothrow_swappable<wrap_type<T, More...>>
+	{
+		constexpr static bool value = is_nothrow_swappable<T, More...>::value;
+	};
+
 	template<typename U, typename T, typename... More>
 	constexpr bool is_same_v = is_same<U, T, More...>::value;
 	template<typename Base, typename Derived, typename... More>
 	constexpr bool is_base_of_v = is_base_of<Base, Derived, More...>::value;
-
-
-
+	template<typename From, typename To, typename... More>
+	constexpr bool is_convertible_v = is_convertible<From, To, More...>::value;
+	template<typename Func, typename Arg, typename... Args>
+	constexpr bool is_invocable_v = is_invocable<Func, Arg, Args...>::value;
+	template<typename Func, typename Arg, typename... Args>
+	constexpr bool is_nothrow_invocable_v = is_nothrow_invocable<Func, Arg, Args...>::value;
+	template<typename Ret, typename Func, typename Arg, typename... Args>
+	constexpr bool is_invocable_r_v = is_invocable_r<Ret, Func, Arg, Args...>::value;
+	template<typename Ret, typename Func, typename Arg, typename... Args>
+	constexpr bool is_nothrow_invocable_r_v = is_nothrow_invocable_r<Ret, Func, Arg, Args...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_void_v = is_void<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_null_pointer_v = is_null_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_integral_v = is_integral<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_floating_point_v = is_floating_point<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_enum_v = is_enum<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_union_v = is_union<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_class_v = is_class<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_function_v = is_function<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_pointer_v = is_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_lvalue_reference_v = is_lvalue_reference<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_rvalue_reference_v = is_rvalue_reference<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_member_object_pointer_v = is_member_object_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_member_function_pointer_v = is_member_function_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_fundamental_v = is_fundamental<T, More...>::value;
 	template<typename T, typename... More>
 	constexpr bool is_arithmetic_v = is_arithmetic<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_scalar_v = is_scalar<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_object_v = is_object<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_compound_v = is_compound<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_reference_v = is_reference<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_member_pointer_v = is_member_pointer<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_const_v = is_const<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_volatile_v = is_volatile<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivial_v = is_trivial<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivial_copyable_v = is_trivial_copyable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_standard_layout_v = is_standard_layout<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool has_unique_object_representations_v = has_unique_object_representations<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_empty_v = is_empty<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_polymorphic_v = is_polymorphic<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_abstract_v = is_abstract<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_final_v = is_final<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_aggregate_v = is_aggregate<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_signed_v = is_signed<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_unsigned_v = is_unsigned<T, More...>::value;
+	template<typename T, typename Arg, typename... Args>
+	constexpr bool is_constructible_v = is_constructible<T, Arg, Args...>::value;
+	template<typename T, typename Arg, typename... Args>
+	constexpr bool is_trivially_constructible_v = is_trivially_constructible<T, Arg, Args...>::value;
+	template<typename T, typename Arg, typename... Args>
+	constexpr bool is_nothrow_constructible_v = is_nothrow_constructible<T, Arg, Args...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_default_constructible_v = is_default_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivially_default_constructible_v = is_trivially_default_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_nothrow_default_constructible_v = is_nothrow_default_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_copy_constructible_v = is_copy_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivially_copy_constructible_v = is_trivially_copy_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_nothrow_copy_constructible_v = is_nothrow_copy_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_move_constructible_v = is_move_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivially_move_constructible_v = is_trivially_move_constructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_nothrow_move_constructible_v = is_nothrow_move_constructible<T, More...>::value;
 	template<typename U, typename T, typename... More>
-	constexpr bool is_convertible_v = is_convertible<U, T, More...>::value;
-
+	constexpr bool is_assignable_v = is_assignable<U, T, More...>::value;
+	template<typename U, typename T, typename... More>
+	constexpr bool is_trivially_assignable_v = is_trivially_assignable<U, T, More...>::value;
+	template<typename U, typename T, typename... More>
+	constexpr bool is_nothrow_assignable_v = is_nothrow_assignable<U, T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_copy_assignable_v = is_copy_assignable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivially_copy_assignable_v = is_trivially_copy_assignable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_nothrow_copy_assignable_v = is_nothrow_copy_assignable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_move_assignable_v = is_move_assignable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivially_move_assignable_v = is_trivially_move_assignable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_nothrow_move_assignable_v = is_nothrow_move_assignable<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_destructible_v = is_destructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_trivially_destructible_v = is_trivially_destructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_nothrow_destructible_v = is_nothrow_destructible<T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool has_virtual_destructor_v = has_virtual_destructor<T, More...>::value;
+	template<typename U, typename T, typename... More>
+	constexpr bool is_swappable_with_v = is_swappable_with<U, T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_swappable_v = is_swappable<T, More...>::value;
+	template<typename U, typename T, typename... More>
+	constexpr bool is_nothrow_swappable_with_v = is_nothrow_swappable_with<U, T, More...>::value;
+	template<typename T, typename... More>
+	constexpr bool is_nothrow_swappable_v = is_nothrow_swappable<T, More...>::value;
 }
 
 #endif//GALLIBRARY_TYPE_TRAITS_HPP
