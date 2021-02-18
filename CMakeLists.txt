@@ -4,7 +4,7 @@ project(
 		galLibrary
 		VERSION 0.0.1
 		LANGUAGES CXX
-		DESCRIPTION "empty for now"
+		DESCRIPTION "bad cxx17 library"
 )
 
 set(CMAKE_CXX_STANDARD 17)
