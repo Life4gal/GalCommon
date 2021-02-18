@@ -2,7 +2,8 @@
 #define GALLIBRARY_SUPPORT_HPP
 
 #include <numeric>
-#include <gal_type_traits.hpp>
+
+#include "gal_type_traits.hpp"
 
 namespace gal {
 	// Ignore utility for ignoring unused params
