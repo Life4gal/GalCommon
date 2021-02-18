@@ -1,0 +1,8 @@
+ignore:
+  - "test"
+
+comment:
+  require_changes: true
+
+codecov:
+  token: 4298fe79-818e-4810-9027-2fb6bcbef821
