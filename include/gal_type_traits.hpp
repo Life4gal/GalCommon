@@ -47,7 +47,7 @@ namespace gal
 		 **********************************/
 		/*
 		 * these two functions will become the cornerstone of constructing this library
-		 * we will use them replace fold-expression based on their short-circuit characteristics
+		 * we will use them replace fold-expression based on their **short-circuit** characteristics
 		 *      template<typename U, typename... T>
 		 *      (Bar<T, U>::value && ...) --> conjunction<Bar<T, U>...>> (::value is not needed)
 		 */
@@ -220,7 +220,7 @@ namespace gal
 		using is_trivially_copyable = std::is_trivially_copyable<T>;
 
 		template<typename T>
-		using is_standard_layour = std::is_standard_layout<T>;
+		using is_standard_layout = std::is_standard_layout<T>;
 
 		template<typename T>
 		using has_unique_object_representations = std::has_unique_object_representations<T>;
@@ -329,6 +329,402 @@ namespace gal
 	template<typename... T>
 	using wrap_type_t = typename wrap_type<T...>::type;
 
+	// I once thought that there would never be macros in the code I wrote, but then I had to compromise.
+
+	#define gal_code_generator_type_one_pack(struct_name)       \
+	template<typename T, typename... More>                      \
+	struct struct_name                                          \
+	{                                                           \
+		using type = typename wrap_type<                        \
+					typename struct_name<T>::type,              \
+					typename struct_name<More...>::type         \
+					>::type;                                    \
+	};                                                          \
+    template<typename T, typename... More>                      \
+    using struct_name##_t = typename struct_name<T, More...>::type;     // support type
+
+	#define gal_code_generator_type_one_type(struct_name)       \
+	template<typename T>                                        \
+	struct struct_name<T>                                       \
+	{                                                           \
+		using type = typename impl::struct_name<T>::type;       \
+	};
+
+	#define gal_code_generator_type_one_wrap_type(struct_name)  \
+	template<typename... T>                                     \
+	struct struct_name<wrap_type<T...>>                         \
+	{                                                           \
+		using type = typename struct_name<T...>::type;          \
+	};
+
+	#define gal_code_generator_type_one_wrapper(struct_name)    \
+	template<typename... T, template<typename...> class Wrapper>\
+	struct struct_name<Wrapper<T...>>                           \
+	{                                                           \
+		using type = typename struct_name<T...>::type;          \
+	};
+
+	#define gal_code_generator_type(struct_name)                \
+		gal_code_generator_type_one_pack(struct_name)           \
+		gal_code_generator_type_one_type(struct_name)           \
+		gal_code_generator_type_one_wrap_type(struct_name)      \
+		gal_code_generator_type_one_wrapper(struct_name)
+
+	#define gal_code_generator_nested_type_one_pack(struct_name, first_nested_level_name, second_nested_level_name) \
+	template<typename T, typename... More>                                                                          \
+	struct struct_name                                                                                              \
+	{                                                                                                               \
+		using type = typename second_nested_level_name<typename first_nested_level_name<T, More...>::type>::type;      \
+	};                                                                                                              \
+	template<typename T, typename... More>                                                                          \
+	using struct_name##_t = typename struct_name<T, More...>::type;
+
+	#define gal_code_generator_nested_type_one_type(struct_name, first_nested_level_name, second_nested_level_name) \
+	template<typename T>                                                                                            \
+	struct struct_name<T>                                                                                           \
+	{                                                                                                               \
+		using type = typename second_nested_level_name<typename first_nested_level_name<T>::type>::type;               \
+	};
+
+	#define gal_code_generator_nested_type_one_wrap_type(struct_name) \
+	template<typename... T>                                                                                              \
+	struct struct_name<wrap_type<T...>>                                                                                  \
+	{                                                                                                                    \
+		using type = typename struct_name<T...>::type;                                                                      \
+	};
+
+	#define gal_code_generator_nested_type_one_wrapper(struct_name) \
+	template<typename... T, template<typename...> class Wrapper>                                                                                              \
+	struct struct_name<Wrapper<T...>>                                                                                  \
+	{                                                                                                                    \
+		using type = typename struct_name<T...>::type;                                                                      \
+	};
+
+	#define gal_code_generator_nested_type(struct_name, first_nested_level_name, second_nested_level_name)      \
+		gal_code_generator_nested_type_one_pack(struct_name, first_nested_level_name, second_nested_level_name) \
+		gal_code_generator_nested_type_one_type(struct_name, first_nested_level_name, second_nested_level_name) \
+		gal_code_generator_nested_type_one_wrap_type(struct_name)                                               \
+		gal_code_generator_nested_type_one_wrapper(struct_name)
+
+	#define gal_code_generator_extra_type_type_one_pack(extra_type, struct_name)    \
+	template<extra_type extra, typename T, typename... More>                        \
+	struct struct_name                                                              \
+	{                                                                               \
+		using type = typename wrap_type<                                            \
+					typename struct_name<extra, T>::type,                           \
+					typename struct_name<extra, More...>::type                      \
+					>::type;                                                        \
+	};                                                                              \
+	template<extra_type extra, typename T, typename... More>                        \
+	using struct_name##_t = typename struct_name<extra, T, More...>::type;  // support type
+
+	#define gal_code_generator_extra_type_type_one_type(extra_type, struct_name) \
+	template<extra_type extra, typename T>                                       \
+	struct struct_name<extra, T>                                                 \
+	{                                                                            \
+		using type = typename impl::struct_name<extra, T>::type;                 \
+	};
+
+	#define gal_code_generator_extra_type_type_one_wrap_type(extra_type, struct_name) \
+	template<extra_type extra, typename... T>                                         \
+	struct struct_name<extra, wrap_type<T...>>                                        \
+	{                                                                                 \
+		using type = typename struct_name<extra, T...>::type;                          \
+	};
+
+	#define gal_code_generator_extra_type_type_one_wrapper(extra_type, struct_name) \
+	template<extra_type extra, typename... T, template<typename...> class Wrapper>  \
+	struct struct_name<extra, Wrapper<T...>>                                        \
+	{                                                                               \
+		using type = typename struct_name<extra, T...>::type;                          \
+	};
+
+	#define gal_code_generator_extra_type_type(extra_type, struct_name)             \
+		gal_code_generator_extra_type_type_one_pack(extra_type, struct_name)        \
+		gal_code_generator_extra_type_type_one_type(extra_type, struct_name)        \
+		gal_code_generator_extra_type_type_one_wrap_type(extra_type, struct_name)   \
+		gal_code_generator_extra_type_type_one_wrapper(extra_type, struct_name)
+
+	#define gal_code_generator_extra_type_pick_one_of_one_type_one_type(extra_type, struct_name) \
+	template<extra_type extra, typename T, typename F>                                                \
+	struct struct_name                                                                                \
+	{                                                                                                 \
+		using type = typename impl::struct_name<extra, T, F>::type;                                      \
+	};                                                                                                \
+	template<extra_type extra, typename T, typename F>                                                \
+	using struct_name##_t = typename struct_name<extra, T, F>::type;    // support type
+
+	#define gal_code_generator_extra_type_pick_one_of_one_wrap_type_one_wrap_type(extra_type, struct_name) \
+	template<extra_type extra, typename... T, typename... F>                                                    \
+	struct struct_name<extra, wrap_type<T...>, wrap_type<F...>>                                                 \
+	{                                                                                                           \
+		using type = typename struct_name<                                                                      \
+						extra,                                                                                  \
+						typename wrap_type<T...>::type,                                                         \
+						typename wrap_type<F...>::type                                                          \
+					>::type;                                                                                                \
+	};
+
+	#define gal_code_generator_extra_type_pick_one_of_one_type_one_wrap_type(extra_type, struct_name) \
+	template<extra_type extra, typename T, typename... F>                                                  \
+	struct struct_name<extra, T, wrap_type<F...>>                                                          \
+	{                                                                                                      \
+		using type = typename struct_name<extra, T, typename wrap_type<F...>::type>::type;                    \
+	};
+
+	#define gal_code_generator_extra_type_pick_one_of_one_wrap_type_one_type(extra_type, struct_name) \
+	template<extra_type extra, typename... T, typename F>                                                  \
+	struct struct_name<extra, wrap_type<T...>, F>                                                          \
+	{                                                                                                      \
+		using type = typename struct_name<extra, typename wrap_type<T...>::type, F>::type;                    \
+	};
+
+	#define gal_code_generator_extra_type_pick_one_of_one_wrapper_one_wrapper(extra_type, struct_name) \
+	template<extra_type extra, typename... T, typename... F, template<typename...> class Wrapper>           \
+	struct struct_name<extra, Wrapper<T...>, Wrapper<F...>>                                                 \
+	{                                                                                                       \
+		using type = typename struct_name<extra, T..., F...>::type;                                            \
+	};
+
+	#define gal_code_generator_extra_type_pick_one_of_one_type_one_wrapper(extra_type, struct_name) \
+	template<extra_type extra, typename T, typename... F, template<typename...> class Wrapper>           \
+	struct struct_name<extra, T, Wrapper<F...>>                                                          \
+	{                                                                                                    \
+		using type = typename struct_name<extra, T, F...>::type;                                            \
+	};
+
+	#define gal_code_generator_extra_type_pick_one_of_one_wrapper_one_type(extra_type, struct_name) \
+	template<extra_type extra, typename... T, typename F, template<typename...> class Wrapper>                 \
+	struct struct_name<extra, Wrapper<T...>, F>                                                          \
+	{                                                                                                    \
+		using type = typename struct_name<extra, T..., F>::type;                                            \
+	};
+
+	#define gal_code_generator_extra_type_pick_one_of_one_wrap_type_one_wrapper(extra_type, struct_name) \
+	template<extra_type extra, typename... T, typename... F, template<typename...> class Wrapper>             \
+	struct struct_name<extra, wrap_type<T...>, Wrapper<F...>>                                                 \
+	{                                                                                                         \
+		using type = typename struct_name<                                                                       \
+					extra,                                                                                                \
+					typename wrap_type<T...>::type,                                                                       \
+					typename Wrapper<F...>::type                                                                          \
+					>::type; \
+	};
+
+	#define gal_code_generator_extra_type_pick_one_of_one_wrapper_one_wrap_type(extra_type, struct_name) \
+	template<extra_type extra, typename... T, typename... F, template<typename...> class Wrapper>        \
+	struct struct_name<extra, Wrapper<T...>, wrap_type<F...>>                                            \
+	{                                                                                                    \
+		using type = typename struct_name<                                                                  \
+					extra,                                                                                           \
+					typename Wrapper<T...>::type,                                                                    \
+					typename wrap_type<F...>::type                                                                   \
+					>::type; \
+	};
+
+#define gal_code_generator_extra_type_pick_one_of_two(extra_type, struct_name)                          \
+	gal_code_generator_extra_type_pick_one_of_one_type_one_type(extra_type, struct_name)                \
+	gal_code_generator_extra_type_pick_one_of_one_wrap_type_one_wrap_type(extra_type, struct_name)      \
+	gal_code_generator_extra_type_pick_one_of_one_type_one_wrap_type(extra_type, struct_name)           \
+	gal_code_generator_extra_type_pick_one_of_one_wrap_type_one_type(extra_type, struct_name)           \
+	gal_code_generator_extra_type_pick_one_of_one_wrapper_one_wrapper(extra_type, struct_name)          \
+	gal_code_generator_extra_type_pick_one_of_one_type_one_wrapper(extra_type, struct_name)             \
+	gal_code_generator_extra_type_pick_one_of_one_wrapper_one_type(extra_type, struct_name)             \
+	gal_code_generator_extra_type_pick_one_of_one_wrap_type_one_wrapper(extra_type, struct_name)        \
+	gal_code_generator_extra_type_pick_one_of_one_wrapper_one_wrap_type(extra_type, struct_name)
+
+	#define gal_code_generator_value_one_pack_conjunction(determine, struct_name) \
+	template<typename... T>                                \
+	struct determine##_##struct_name                                     \
+	{                                                      \
+		constexpr static bool value = impl::conjunction<determine##_##struct_name<T>...>::value; \
+		constexpr explicit operator bool(){return value;}     \
+		constexpr bool operator()(){return value;}            \
+	};                                                     \
+	template<typename... T>                                \
+	constexpr bool determine##_##struct_name##_v = determine##_##struct_name<T...>::value;
+
+	#define gal_code_generator_value_one_pack_disjunction(determine, struct_name) \
+	template<typename... T>                                \
+	struct determine##_##struct_name                                     \
+	{                                                      \
+		constexpr static bool value = impl::disjunction<determine##_##struct_name<T>...>::value; \
+		constexpr explicit operator bool(){return value;}     \
+		constexpr bool operator()(){return value;}            \
+	};                                                     \
+	template<typename... T>                                \
+	constexpr bool determine##_##struct_name##_v = determine##_##struct_name<T...>::value;
+
+	#define gal_code_generator_value_one_type(determine, struct_name) \
+	template<typename T>                                   \
+	struct determine##_##struct_name<T>                                  \
+	{                                                      \
+		constexpr static bool value = impl::is_##struct_name<T>::value; \
+	};
+
+	#define gal_code_generator_value_one_wrap_type(determine, struct_name) \
+	template<typename... T>                                     \
+	struct determine##_##struct_name<wrap_type<T...>>                         \
+	{                                                           \
+		constexpr static bool value = determine##_##struct_name<T...>::value;    \
+	};
+
+	#define gal_code_generator_value_one_wrapper(determine, struct_name) \
+	template<typename... T, template<typename...> class Wrapper> \
+	struct determine##_##struct_name<Wrapper<T...>>                         \
+	{                                                         \
+		constexpr static bool value = determine##_##struct_name<T...>::value;  \
+	};
+
+	#define gal_code_generator_value_is(struct_name)                    \
+		gal_code_generator_value_one_pack_conjunction(is, struct_name)  \
+		gal_code_generator_value_one_type(is, struct_name)              \
+		gal_code_generator_value_one_wrap_type(is, struct_name)         \
+		gal_code_generator_value_one_wrapper(is, struct_name)
+
+	#define gal_code_generator_value_has(struct_name)                    \
+		gal_code_generator_value_one_pack_disjunction(has, struct_name)  \
+		gal_code_generator_value_one_type(has, struct_name)              \
+		gal_code_generator_value_one_wrap_type(has, struct_name)         \
+		gal_code_generator_value_one_wrapper(has, struct_name)
+
+	#define gal_code_generator_value_determine_one_type_one_pack_conjunction(determine, struct_name) \
+	template<typename U, typename... T>                                \
+	struct determine##_##struct_name                                     \
+	{                                                      \
+		constexpr static bool value = impl::conjunction<determine##_##struct_name<U, T>...>::value; \
+		constexpr explicit operator bool(){return value;}     \
+		constexpr bool operator()(){return value;}            \
+	};                                                     \
+	template<typename U, typename... T>                                \
+	constexpr bool determine##_##struct_name##_v = determine##_##struct_name<U, T...>::value;
+
+	#define gal_code_generator_value_determine_one_type_one_pack_disjunction(determine, struct_name) \
+	template<typename U, typename... T>                                \
+	struct determine##_##struct_name                                     \
+	{                                                      \
+		constexpr static bool value = impl::disjunction<determine##_##struct_name<U, T>...>::value; \
+		constexpr explicit operator bool(){return value;}     \
+		constexpr bool operator()(){return value;}            \
+	};                                                     \
+	template<typename U, typename... T>                                \
+	constexpr bool determine##_##struct_name##_v = determine##_##struct_name<U, T...>::value;
+
+	#define gal_code_generator_value_determine_one_type_one_type(determine, struct_name) \
+	template<typename U, typename T>                                   \
+	struct determine##_##struct_name<U, T>                                  \
+	{                                                      \
+		constexpr static bool value = impl::is_##struct_name<T, U>::value; \
+	};
+
+	#define gal_code_generator_value_determine_one_type_one_wrap_type(determine, struct_name) \
+	template<typename U, typename... T>                                     \
+	struct determine##_##struct_name<U, wrap_type<T...>>                         \
+	{                                                           \
+		constexpr static bool value = determine##_##struct_name<U, T...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_type_one_wrapper(determine, struct_name) \
+	template<typename U, typename... T, template<typename...> class Wrapper> \
+	struct determine##_##struct_name<U, Wrapper<T...>>                         \
+	{                                                         \
+		constexpr static bool value = determine##_##struct_name<U, T...>::value;  \
+	};
+
+	#define gal_code_generator_value_determine_one_wrap_type_one_type(determine, struct_name) \
+	template<typename... U, typename T>                                     \
+	struct determine##_##struct_name<wrap_type<U...>, T>                         \
+	{                                                           \
+		constexpr static bool value = determine##_##struct_name<U..., T>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrapper_one_type(determine, struct_name) \
+	template<typename... U, typename T, template<typename...> class Wrapper>                                     \
+	struct determine##_##struct_name<Wrapper<U...>, T>                         \
+	{                                                           \
+		constexpr static bool value = determine##_##struct_name<U..., T>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrap_type_one_wrap_type_conjunction(determine, struct_name) \
+	template<typename... U, typename... T>                                     \
+	struct determine##_##struct_name<wrap_type<U...>, wrap_type<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::conjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrap_type_one_wrap_type_disjunction(determine, struct_name) \
+	template<typename... U, typename... T>                                     \
+	struct determine##_##struct_name<wrap_type<U...>, wrap_type<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::disjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrapper_one_wrapper_conjunction(determine, struct_name) \
+	template<typename... U, typename... T, template<typename...> class Wrapper>                                     \
+	struct determine##_##struct_name<Wrapper<U...>, Wrapper<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::conjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrapper_one_wrapper_disjunction(determine, struct_name) \
+	template<typename... U, typename... T, template<typename...> class Wrapper>                                     \
+	struct determine##_##struct_name<Wrapper<U...>, Wrapper<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::disjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrapper_one_wrap_type_conjunction(determine, struct_name) \
+	template<typename... U, typename... T, template<typename...> class Wrapper>                                     \
+	struct determine##_##struct_name<Wrapper<U...>, wrap_type<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::conjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrapper_one_wrap_type_disjunction(determine, struct_name) \
+	template<typename... U, typename... T, template<typename...> class Wrapper>                                     \
+	struct determine##_##struct_name<Wrapper<U...>, wrap_type<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::disjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrap_type_one_wrapper_conjunction(determine, struct_name) \
+	template<typename... U, typename... T, template<typename...> class Wrapper>                                     \
+	struct determine##_##struct_name<wrap_type<U...>, Wrapper<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::conjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_one_wrap_type_one_wrapper_disjunction(determine, struct_name) \
+	template<typename... U, typename... T, template<typename...> class Wrapper>                                     \
+	struct determine##_##struct_name<wrap_type<U...>, Wrapper<T...>>                         \
+	{                                                           \
+		constexpr static bool value = impl::disjunction<determine##_##struct_name<U, T>...>::value;    \
+	};
+
+	#define gal_code_generator_value_determine_is(struct_name) \
+		gal_code_generator_value_determine_one_type_one_pack_conjunction(is, struct_name) \
+		gal_code_generator_value_determine_one_type_one_type(is, struct_name)             \
+		gal_code_generator_value_determine_one_type_one_wrap_type(is, struct_name)        \
+		gal_code_generator_value_determine_one_type_one_wrapper(is, struct_name)          \
+		gal_code_generator_value_determine_one_wrap_type_one_type(is, struct_name)        \
+		gal_code_generator_value_determine_one_wrapper_one_type(is, struct_name)          \
+		gal_code_generator_value_determine_one_wrap_type_one_wrap_type_conjunction(is, struct_name) \
+		gal_code_generator_value_determine_one_wrapper_one_wrapper_conjunction(is, struct_name)     \
+		gal_code_generator_value_determine_one_wrapper_one_wrap_type_conjunction(is, struct_name)   \
+		gal_code_generator_value_determine_one_wrap_type_one_wrapper_conjunction(is, struct_name)
+
+	#define gal_code_generator_value_determine_has(struct_name) \
+		gal_code_generator_value_determine_one_type_one_pack_disjunction(has, struct_name) \
+		gal_code_generator_value_determine_one_type_one_type(has, struct_name)             \
+		gal_code_generator_value_determine_one_type_one_wrap_type(has, struct_name)        \
+		gal_code_generator_value_determine_one_type_one_wrapper(has, struct_name)          \
+		gal_code_generator_value_determine_one_wrap_type_one_type(has, struct_name)        \
+		gal_code_generator_value_determine_one_wrapper_one_type(has, struct_name)          \
+		gal_code_generator_value_determine_one_wrap_type_one_wrap_type_disjunction(has, struct_name) \
+		gal_code_generator_value_determine_one_wrapper_one_wrapper_disjunction(has, struct_name)     \
+		gal_code_generator_value_determine_one_wrapper_one_wrap_type_disjunction(has, struct_name)   \
+		gal_code_generator_value_determine_one_wrap_type_one_wrapper_disjunction(has, struct_name)
+
 	/*
 	 * template parameter pack
 	 *
@@ -368,596 +764,34 @@ namespace gal
 	/**********************************
 	 * Operations on traits
 	 **********************************/
-	template<typename T, typename... More>
-	struct negation
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename negation<T>::type, typename negation<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct negation<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::negation<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct negation<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename negation<T, More...>::type;
-	};
-
-	template<typename T, typename... More>
-	using negation_t = typename negation<T, More...>::type;
+	gal_code_generator_type(negation)
 
 	/**********************************
 	 * Miscellaneous transformations
 	 **********************************/
-	template<typename T, typename... More>
-	struct decay
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename decay<T>::type, typename decay<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct decay<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::decay<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct decay<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename decay<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct decay<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename decay<T...>::type;
-	};
-
-	template<bool cond, typename T, typename... More>
-	struct enable_if
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename enable_if<cond, T>::type, typename enable_if<cond, More...>::type>::type;
-	};
-
-	template<bool cond, typename T>
-	struct enable_if<cond, T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::enable_if<cond, T>::type;
-	};
-
-	template<bool cond, typename T, typename... More>
-	struct enable_if<cond, wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename enable_if<cond, T, More...>::type;
-	};
-
-	template<bool cond, typename... T, template<typename...> class Wrapper>
-	struct enable_if<cond, Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename enable_if<cond, T...>::type;
-	};
-
-	template<bool cond, typename T, typename F>
-	struct conditional
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::conditional<cond, T, F>::type;
-	};
-
-	template<bool cond, typename T, typename... Ts, typename F, typename... Fs>
-	struct conditional<cond, wrap_type<T, Ts...>, wrap_type<F, Fs...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, typename wrap_type<T, Ts...>::type, typename wrap_type<F, Fs...>::type>::type;
-	};
-
-	template<bool cond, typename T, typename... Ts, typename F>
-	struct conditional<cond, wrap_type<T, Ts...>, F>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, typename wrap_type<T, Ts...>::type, F>::type;
-	};
-
-	template<bool cond, typename T, typename F, typename... Fs>
-	struct conditional<cond, T, wrap_type<F, Fs...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, T, typename wrap_type<F, Fs...>::type>::type;
-	};
-
-	template<bool cond, typename... T, typename F, template<typename...> class Wrapper>
-	struct conditional<cond, Wrapper<T...>, F>
-	{
-		// todo: test **
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, T..., F>::type;
-	};
-
-	template<bool cond, typename T, typename... F, template<typename...> class Wrapper>
-	struct conditional<cond, T, Wrapper<F...>>
-	{
-		// todo: test **
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename conditional<cond, T, F...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct common_type
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename common_type<T>::type, typename common_type<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct common_type<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::common_type<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct common_type<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename common_type<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct common_type<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename common_type<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct underlying_type
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename underlying_type<T>::type, typename underlying_type<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct underlying_type<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::underlying_type<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct underlying_type<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename underlying_type<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct underlying_type<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename underlying_type<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	using decay_t = typename decay<T, More...>::type;
-	template<bool cond, typename T, typename... More>
-	using enable_if_t = typename enable_if<cond, T, More...>::type;
-	template<bool cond, typename T, typename F>
-	using conditional_t = typename conditional<cond, T, F>::type;
-	template<typename T, typename... More>
-	using common_type_t = typename common_type<T, More...>::type;
-	template<typename T, typename... More>
-	using underlying_type_t = typename underlying_type<T, More...>::type;
+	gal_code_generator_type(decay)
+	gal_code_generator_extra_type_type(bool, enable_if)
+	gal_code_generator_extra_type_pick_one_of_two(bool, conditional)
 
 	/**********************************
 	 * Type modifications
 	 **********************************/
-	template<typename T, typename... More>
-	struct remove_const
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename remove_const<T>::type, typename remove_const<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct remove_const<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::remove_const<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_const<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_const<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct remove_const<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_const<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_const
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename add_const<T>::type, typename add_const<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct add_const<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::add_const<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_const<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_const<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_const<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_const<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_volatile
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename remove_volatile<T>::type, typename remove_volatile<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct remove_volatile<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::remove_volatile<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_volatile<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_volatile<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct remove_volatile<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_volatile<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_volatile
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename add_volatile<T>::type, typename add_volatile<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct add_volatile<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::add_volatile<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_volatile<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_volatile<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_volatile<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_volatile<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_pointer
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename remove_pointer<T>::type, typename remove_pointer<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct remove_pointer<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::remove_pointer<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_pointer<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_pointer<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct remove_pointer<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_pointer<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_pointer
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename add_pointer<T>::type, typename add_pointer<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct add_pointer<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::add_pointer<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_pointer<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_pointer<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_pointer<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_pointer<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_reference
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename remove_reference<T>::type, typename remove_reference<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct remove_reference<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::remove_reference<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_reference<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_reference<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct remove_reference<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_reference<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_lvalue_reference
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename add_lvalue_reference<T>::type, typename add_lvalue_reference<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct add_lvalue_reference<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::add_lvalue_reference<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_lvalue_reference<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_lvalue_reference<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_lvalue_reference<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_lvalue_reference<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_rvalue_reference
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename add_rvalue_reference<T>::type, typename add_rvalue_reference<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct add_rvalue_reference<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::add_rvalue_reference<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_rvalue_reference<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_rvalue_reference<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_rvalue_reference<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_rvalue_reference<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct make_signed
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_signed<T>::type, typename make_signed<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct make_signed<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_signed<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct make_signed<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_signed<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct make_signed<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_signed<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct make_unsigned
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename wrap_type<typename make_unsigned<T>::type, typename make_unsigned<More...>::type>::type;
-	};
-
-	template<typename T>
-	struct make_unsigned<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename impl::make_unsigned<T>::type;
-	};
-
-	template<typename T, typename... More>
-	struct make_unsigned<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_unsigned<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct make_unsigned<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename make_unsigned<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_cv
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_const<typename remove_volatile<T, More...>::type>::type;
-	};
-
-	template<typename T>
-	struct remove_cv<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_const<typename remove_volatile<T>::type>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_cv<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct remove_cv<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_cv
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_const<typename add_volatile<T, More...>::type>::type;
-	};
-
-	template<typename T>
-	struct add_cv<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_const<typename add_volatile<T>::type>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_cv<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_cv<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_cv_ref
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv<typename remove_reference<T, More...>::type>::type;;
-	};
-
-	template<typename T>
-	struct remove_cv_ref<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv<typename remove_reference<T>::type>::type;
-	};
-
-	template<typename T, typename... More>
-	struct remove_cv_ref<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv_ref<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct remove_cv_ref<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename remove_cv_ref<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_cv_lref
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<typename add_lvalue_reference<T, More...>::type>::type;;
-	};
-
-	template<typename T>
-	struct add_cv_lref<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<typename add_lvalue_reference<T>::type>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_cv_lref<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_lref<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_cv_lref<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_lref<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_cv_rref
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<typename add_rvalue_reference<T, More...>::type>::type;;
-	};
-
-	template<typename T>
-	struct add_cv_rref<T>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv<typename add_rvalue_reference<T>::type>::type;
-	};
-
-	template<typename T, typename... More>
-	struct add_cv_rref<wrap_type<T, More...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_rref<T, More...>::type;
-	};
-
-	template<typename... T, template<typename...> class Wrapper>
-	struct add_cv_rref<Wrapper<T...>>
-	{
-		using type [[maybe_unused]]/*The noisy IDE cannot find where it is used*/ = typename add_cv_rref<T...>::type;
-	};
-
-	template<typename T, typename... More>
-	using remove_const_t = typename remove_const<T, More...>::type;
-	template<typename T, typename... More>
-	using remove_volatile_t = typename remove_volatile<T, More...>::type;
-	template<typename T, typename... More>
-	using remove_pointer_t = typename remove_pointer<T, More...>::type;
-	template<typename T, typename... More>
-	using remove_reference_t = typename remove_reference<T, More...>::type;
-	template<typename T, typename... More>
-	using remove_cv_t = typename remove_cv<T, More...>::type;
-	template<typename T, typename... More>
-	using remove_cv_ref_t = typename remove_cv_ref<T, More...>::type;
-
-	template<typename T, typename... More>
-	using add_const_t = typename add_const<T, More...>::type;
-	template<typename T, typename... More>
-	using add_volatile_t = typename add_volatile<T, More...>::type;
-	template<typename T, typename... More>
-	using add_pointer_t = typename add_pointer<T, More...>::type;
-	template<typename T, typename... More>
-	using add_lvalue_reference_t = typename add_lvalue_reference<T, More...>::type;
-	template<typename T, typename... More>
-	using add_rvalue_reference_t = typename add_rvalue_reference<T, More...>::type;
-	template<typename T, typename... More>
-	using add_cv_t = typename add_cv<T, More...>::type;
-	template<typename T, typename... More>
-	using add_cv_lref_t = typename add_cv_lref<T, More...>::type;
-	template<typename T, typename... More>
-	using add_cv_rref_t = typename add_cv_rref<T, More...>::type;
-
-	template<typename T, typename... More>
-	using make_signed_t = typename make_signed<T, More...>::type;
-	template<typename T, typename... More>
-	using make_unsigned_t = typename make_unsigned<T, More...>::type;
+	gal_code_generator_type(remove_const)
+	gal_code_generator_type(add_const)
+	gal_code_generator_type(remove_volatile)
+	gal_code_generator_type(add_volatile)
+	gal_code_generator_type(remove_pointer)
+	gal_code_generator_type(add_pointer)
+	gal_code_generator_type(remove_reference)
+	gal_code_generator_type(add_lvalue_reference)
+	gal_code_generator_type(add_rvalue_reference)
+	gal_code_generator_type(make_signed)
+	gal_code_generator_type(make_unsigned)
+	gal_code_generator_nested_type(remove_cv, remove_volatile, remove_const)
+	gal_code_generator_nested_type(add_cv, add_volatile, add_const)
+	gal_code_generator_nested_type(remove_cv_ref, remove_reference, remove_cv)
+	gal_code_generator_nested_type(add_cv_lref, add_lvalue_reference, add_cv)
+	gal_code_generator_nested_type(add_cv_rref, add_rvalue_reference, add_cv)
 
 	/*
 	 * for template<typename U, typename T, typename... More> struct Bar
@@ -991,117 +825,23 @@ namespace gal
 	/**********************************
 	 * Type relationships
 	 **********************************/
-	// is_same<U, type1, type2, type3...>
-	template<typename U, typename T, typename... More>
-	struct is_same
-	{
-		constexpr static bool value = is_same<U, T>::value && is_same<U, More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_determine_is(same)
+	gal_code_generator_value_determine_has(same)
 
-	// is_same<U, T>
-	template<typename U, typename T>
-	struct is_same<U, T>
-	{
-		constexpr static bool value = impl::is_same<T, U>::value;
-	};
+	gal_code_generator_value_determine_is(base_of)
+	gal_code_generator_value_determine_has(base_of)
 
-	// is_same<U, wrap_type<type1, type2, type3...>>
-	template<typename U, typename T, typename... More>
-	struct is_same<U, wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_same<U, T, More...>::value;
-	};
+	gal_code_generator_value_determine_is(convertible)
+	gal_code_generator_value_determine_has(convertible)
 
-	// is_same<wrap_type<type1, type2, type3...>, T>
-	template<typename U, typename... Us, typename T>
-	struct is_same<wrap_type<U, Us...>, T>
-	{
-		// todo: test *
-		constexpr static bool value = is_same<U, T>::value && is_same<Us..., T>::value;
-	};
 
-	// is_same<wrap_type<type1, type2, type3...>, wrap_type<type11, type22, type33...>>
-	template<typename U, typename... Us, typename T, typename... Ts>
-	struct is_same<wrap_type<U, Us...>, wrap_type<T, Ts...>>
-	{
-		// todo: test **
-		constexpr static bool value = is_same<U, T>::value && (is_same<Us, Ts>::value && ...);
-	};
-
-	template<typename Base, typename Derived, typename... More>
-	struct is_base_of
-	{
-		constexpr static bool value = is_base_of<Base, Derived>::value && is_base_of<Base, More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename Base, typename Derived>
-	struct is_base_of<Base, Derived>
-	{
-		constexpr static bool value = impl::is_base_of<Base, Derived>::value;
-	};
-
-	template<typename Base, typename Derived, typename... More>
-	struct is_base_of<Base, wrap_type<Derived, More...>>
-	{
-		constexpr static bool value = is_base_of<Base, Derived, More...>::value;
-	};
-
-	template<typename Base, typename... Bases, typename Derived>
-	struct is_base_of<wrap_type<Base, Bases...>, Derived>
-	{
-		// todo: test *
-		constexpr static bool value = is_base_of<Base, Derived>::value && is_base_of<Bases..., Derived>::value;
-	};
-
-	template<typename Base, typename... Bases, typename Derived, typename... Deriveds>
-	struct is_base_of<wrap_type<Base, Bases...>, wrap_type<Derived, Deriveds...>>
-	{
-		// todo: test **
-		constexpr static bool value = is_base_of<Base, Derived>::value && (is_base_of<Bases, Deriveds>::value && ...);
-	};
-
-	template<typename From, typename To, typename... More>
-	struct is_convertible
-	{
-		constexpr static bool value = is_convertible<From, To>::value && is_convertible<From, More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename From, typename To>
-	struct is_convertible<From, To>
-	{
-		constexpr static bool value = impl::is_convertible<From, To>::value;
-	};
-
-	template<typename From, typename To, typename... More>
-	struct is_convertible<From, wrap_type<To, More...>>
-	{
-		constexpr static bool value = is_convertible<From, To, More...>::value;
-	};
-
-	template<typename From, typename... Froms, typename To>
-	struct is_convertible<wrap_type<From, Froms...>, To>
-	{
-		// todo: test *
-		constexpr static bool value = is_convertible<From, To>::value && is_convertible<Froms..., To>::value;
-	};
-
-	template<typename From, typename... Froms, typename To, typename... Tos>
-	struct is_convertible<wrap_type<From, Froms...>, wrap_type<To, Tos...>>
-	{
-		// todo: test **
-		constexpr static bool value = is_convertible<From, To>::value && (is_convertible<Froms, Tos>::value && ...);
-	};
-
-	template<typename Func, typename Arg, typename... Args>
+	// we have something different about 'invocable', there may be one or more parameters
+	template<typename Func, typename... Args>
 	struct is_invocable
 	{
-		constexpr static bool value = is_invocable<Func, Arg>::value && is_invocable<Func, Args...>::value;
+		// one function has more than one args pack want to call it
+		// like void foo(int, int) --> foo(1, 2), foo(3, 4), foo(5, 6)
+		constexpr static bool value = impl::conjunction<is_invocable<Func, Args>...>::value;
 		constexpr explicit operator bool(){return value;}
 		constexpr bool operator()(){return value;}
 	};
@@ -1109,81 +849,149 @@ namespace gal
 	template<typename Func, typename Arg>
 	struct is_invocable<Func, Arg>
 	{
+		// one function has one arg
+		// like void foo(int) --> foo(1)
 		constexpr static bool value = impl::is_invocable<Func, Arg>::value;
 	};
 
 	template<typename Func, typename... Args>
 	struct is_invocable<Func, wrap_type<Args...>>
 	{
+		// one function has one arg pack
+		// like void foo(int, int) --> foo(1, 42)
 		constexpr static bool value = impl::is_invocable<Func, Args...>::value;
 	};
 
-	template<typename Func, typename... Funcs, typename... Args>
-	struct is_invocable<wrap_type<Func, Funcs...>, wrap_type<Args...>>
+	template<typename Func, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable<Func, Wrapper<Args...>>
 	{
-		// todo: test **
-		constexpr static bool value = is_invocable<Func, Args...>::value && is_invocable<Funcs..., Args...>::value;
+		// one function has one arg pack
+		// like void foo(int, int) --> foo(1, 42)
+		constexpr static bool value = impl::is_invocable<Func, Args...>::value;
+	};
+
+	template<typename... Funcs, typename... Args>
+	struct is_invocable<wrap_type<Funcs...>, wrap_type<Args...>>
+	{
+		// many function has one arg pack to call
+		constexpr static bool value = impl::conjunction<is_invocable<Funcs, Args...>...>::value;
+	};
+
+	template<typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable<Wrapper<Funcs...>, Wrapper<Args...>>
+	{
+		// many function has one arg pack to call
+		constexpr static bool value = impl::conjunction<is_invocable<Funcs, Args...>...>::value;
 	};
 
 	template<typename Func, typename... Funcs, typename Arg>
 	struct is_invocable<wrap_type<Func, Funcs...>, Arg>
 	{
-		// todo: test *
-		constexpr static bool value = is_invocable<Func, Arg>::value && is_invocable<Funcs..., Arg>::value;
+		// many function has one arg pack
+		constexpr static bool value = impl::conjunction<is_invocable<Funcs, Arg>...>::value;
+	};
+
+	template<typename Func, typename... Funcs, typename Arg, template<typename...> class Wrapper>
+	struct is_invocable<Wrapper<Func, Funcs...>, Arg>
+	{
+		// many function has one arg pack
+		constexpr static bool value = impl::conjunction<is_invocable<Funcs, Arg>...>::value;
 	};
 
 	template<typename Func, typename... Funs, typename Arg, typename... Args>
 	struct is_invocable<wrap_type<Func, Funs...>, wrap_type<Arg, Args...>>
 	{
-		// todo: test *
-		constexpr static bool value = is_invocable<Func, Arg>::value && (is_invocable<Funs, Args>::value && ...);
+		// many function has corresponding arg to call
+		constexpr static bool value = is_invocable<Func, Arg>::value && impl::conjunction<is_invocable<Func, Args>...>::value;
 	};
 
-	template<typename Func, typename Arg, typename... Args>
-	struct is_nothrow_invocable
+	template<typename Func, typename... Funs, typename Arg, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable<Wrapper<Func, Funs...>, Wrapper<Arg, Args...>>
 	{
-		constexpr static bool value = is_nothrow_invocable<Func, Arg>::value && is_nothrow_invocable<Func, Args...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
+		// many function has corresponding arg to call
+		constexpr static bool value = is_invocable<Func, Arg>::value && impl::conjunction<is_invocable<Func, Args>...>::value;
 	};
 
 	template<typename Func, typename... Args>
-	struct is_nothrow_invocable<Func, wrap_type<Args...>>
+	struct is_nothrow_invocable
 	{
-		constexpr static bool value = impl::is_nothrow_invocable<Func, Args...>::value;
+		// one function has more than one args pack want to call it
+		// like void foo(int, int) --> foo(1, 2), foo(3, 4), foo(5, 6)
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable<Func, Args>...>::value;
+		constexpr explicit operator bool(){return value;}
+		constexpr bool operator()(){return value;}
 	};
 
 	template<typename Func, typename Arg>
 	struct is_nothrow_invocable<Func, Arg>
 	{
+		// one function has one arg
+		// like void foo(int) --> foo(1)
 		constexpr static bool value = impl::is_nothrow_invocable<Func, Arg>::value;
 	};
 
-	template<typename Func, typename... Funcs, typename... Args>
-	struct is_nothrow_invocable<wrap_type<Func, Funcs...>, wrap_type<Args...>>
+	template<typename Func, typename... Args>
+	struct is_nothrow_invocable<Func, wrap_type<Args...>>
 	{
-		// todo: test **
-		constexpr static bool value = is_nothrow_invocable<Func, Args...>::value && is_nothrow_invocable<Funcs..., Args...>::value;
+		// one function has one arg pack
+		// like void foo(int, int) --> foo(1, 42)
+		constexpr static bool value = impl::is_nothrow_invocable<Func, Args...>::value;
+	};
+
+	template<typename Func, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable<Func, Wrapper<Args...>>
+	{
+		// one function has one arg pack
+		// like void foo(int, int) --> foo(1, 42)
+		constexpr static bool value = impl::is_nothrow_invocable<Func, Args...>::value;
+	};
+
+	template<typename... Funcs, typename... Args>
+	struct is_nothrow_invocable<wrap_type<Funcs...>, wrap_type<Args...>>
+	{
+		// many function has one arg pack to call
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable<Funcs, Args...>...>::value;
+	};
+
+	template<typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable<Wrapper<Funcs...>, Wrapper<Args...>>
+	{
+		// many function has one arg pack to call
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable<Funcs, Args...>...>::value;
 	};
 
 	template<typename Func, typename... Funcs, typename Arg>
 	struct is_nothrow_invocable<wrap_type<Func, Funcs...>, Arg>
 	{
-		// todo: test *
-		constexpr static bool value = is_nothrow_invocable<Func, Arg>::value && is_nothrow_invocable<Funcs..., Arg>::value;
+		// many function has one arg pack
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable<Funcs, Arg>...>::value;
 	};
 
-	template<typename Func, typename... Funcs, typename Arg, typename... Args>
-	struct is_nothrow_invocable<wrap_type<Func, Funcs...>, wrap_type<Arg, Args...>>
+	template<typename Func, typename... Funcs, typename Arg, template<typename...> class Wrapper>
+	struct is_nothrow_invocable<Wrapper<Func, Funcs...>, Arg>
 	{
-		// todo: test *
-		constexpr static bool value = is_nothrow_invocable<Func, Arg>::value && (is_nothrow_invocable<Funcs, Args>::value && ...);
+		// many function has one arg pack
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable<Funcs, Arg>...>::value;
 	};
 
-	template<typename Ret, typename Func, typename Arg, typename... Args>
+	template<typename Func, typename... Funs, typename Arg, typename... Args>
+	struct is_nothrow_invocable<wrap_type<Func, Funs...>, wrap_type<Arg, Args...>>
+	{
+		// many function has corresponding arg to call
+		constexpr static bool value = is_nothrow_invocable<Func, Arg>::value && impl::conjunction<is_nothrow_invocable<Func, Args>...>::value;
+	};
+
+	template<typename Func, typename... Funs, typename Arg, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable<Wrapper<Func, Funs...>, Wrapper<Arg, Args...>>
+	{
+		// many function has corresponding arg to call
+		constexpr static bool value = is_nothrow_invocable<Func, Arg>::value && impl::conjunction<is_nothrow_invocable<Func, Args>...>::value;
+	};
+
+	template<typename Ret, typename Func, typename... Args>
 	struct is_invocable_r
 	{
-		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && is_invocable_r<Ret, Func, Args...>::value;
+		constexpr static bool value = impl::conjunction<is_invocable_r<Ret, Func, Args>...>::value;
 		constexpr explicit operator bool(){return value;}
 		constexpr bool operator()(){return value;}
 	};
@@ -1194,58 +1002,94 @@ namespace gal
 		constexpr static bool value = impl::is_invocable_r<Ret, Func, Args...>::value;
 	};
 
+	template<typename Ret, typename Func, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable_r<Ret, Func, Wrapper<Args...>>
+	{
+		constexpr static bool value = impl::is_invocable_r<Ret, Func, Args...>::value;
+	};
+
 	template<typename Ret, typename Func, typename Arg>
 	struct is_invocable_r<Ret, Func, Arg>
 	{
 		constexpr static bool value = impl::is_invocable_r<Ret, Func, Arg>::value;
 	};
 
-	template<typename Ret, typename Func, typename... Funcs, typename... Args>
-	struct is_invocable_r<Ret, wrap_type<Func, Funcs...>, wrap_type<Args...>>
+	template<typename Ret, typename... Funcs, typename... Args>
+	struct is_invocable_r<Ret, wrap_type<Funcs...>, wrap_type<Args...>>
 	{
-		// todo: test **
-		constexpr static bool value = is_invocable_r<Ret, Func, Args...>::value && is_invocable_r<Ret, Funcs..., Args...>::value;
+		constexpr static bool value = impl::conjunction<is_invocable_r<Ret, Funcs, Args...>...>::value;
 	};
 
-	template<typename Ret, typename Func, typename... Funcs, typename Arg>
-	struct is_invocable_r<Ret, wrap_type<Func, Funcs...>, Arg>
+	template<typename Ret, typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable_r<Ret, Wrapper<Funcs...>, Wrapper<Args...>>
 	{
-		// todo: test *
-		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && is_invocable_r<Ret, Funcs..., Arg>::value;
+		constexpr static bool value = impl::conjunction<is_invocable_r<Ret, Funcs, Args...>...>::value;
+	};
+
+	template<typename Ret, typename... Funcs, typename Arg>
+	struct is_invocable_r<Ret, wrap_type<Funcs...>, Arg>
+	{
+		constexpr static bool value = impl::conjunction<is_invocable_r<Ret, Funcs, Arg>...>::value;
+	};
+
+	template<typename Ret, typename... Funcs, typename Arg, template<typename...> class Wrapper>
+	struct is_invocable_r<Ret, Wrapper<Funcs...>, Arg>
+	{
+		constexpr static bool value = impl::conjunction<is_invocable_r<Ret, Funcs, Arg>...>::value;
 	};
 
 	template<typename Ret, typename Func, typename... Funcs, typename Arg, typename... Args>
 	struct is_invocable_r<Ret, wrap_type<Func, Funcs...>, wrap_type<Arg, Args...>>
 	{
-		// todo: test *
-		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && (is_invocable_r<Ret, Funcs, Args>::value && ...);
+		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_invocable_r<Ret, Funcs, Args>...>::value;
 	};
 
-	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename Arg, typename... Args>
-	struct is_invocable_r<wrap_type<Ret, Rets...>, wrap_type<Func, Funcs...>, wrap_type<Arg, Args...>>
+	template<typename Ret, typename Func, typename... Funcs, typename Arg, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable_r<Ret, Wrapper<Func, Funcs...>, Wrapper<Arg, Args...>>
 	{
-		// todo: test **
-		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && (is_invocable_r<Rets, Funcs, Args>::value && ...);
+		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_invocable_r<Ret, Funcs, Args>...>::value;
+	};
+
+	template<typename... Rets, typename... Funcs, typename... Args>
+	struct is_invocable_r<wrap_type<Rets...>, wrap_type<Funcs...>, wrap_type<Args...>>
+	{
+		constexpr static bool value = impl::conjunction<is_invocable_r<Rets, Funcs, Args>...>::value;
+	};
+
+	template<typename... Rets, typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable_r<Wrapper<Rets...>, Wrapper<Funcs...>, Wrapper<Args...>>
+	{
+		constexpr static bool value = impl::conjunction<is_invocable_r<Rets, Funcs, Args>...>::value;
 	};
 
 	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename... Args>
 	struct is_invocable_r<wrap_type<Ret, Rets...>, wrap_type<Func, Funcs...>, wrap_type<Args...>>
 	{
-		// todo: test ***
-		constexpr static bool value = is_invocable_r<Ret, Func, Args...>::value && is_invocable_r<Rets..., Funcs..., Args...>::value;
+		constexpr static bool value = is_invocable_r<Ret, Func, Args...>::value && impl::conjunction<is_invocable_r<Rets, Funcs, Args...>...>::value;
+	};
+
+	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_invocable_r<Wrapper<Ret, Rets...>, Wrapper<Func, Funcs...>, Wrapper<Args...>>
+	{
+		constexpr static bool value = is_invocable_r<Ret, Func, Args...>::value && impl::conjunction<is_invocable_r<Rets, Funcs, Args...>...>::value;
 	};
 
 	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename Arg>
 	struct is_invocable_r<wrap_type<Ret, Rets...>, wrap_type<Func, Funcs...>, Arg>
 	{
-		// todo: test **
-		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && is_invocable_r<Rets..., Funcs..., Arg>::value;
+		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_invocable_r<Rets, Funcs, Arg>...>::value;
 	};
 
-	template<typename Ret, typename Func, typename Arg, typename... Args>
+	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename Arg, template<typename...> class Wrapper>
+	struct is_invocable_r<Wrapper<Ret, Rets...>, Wrapper<Func, Funcs...>, Arg>
+	{
+		constexpr static bool value = is_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_invocable_r<Rets, Funcs, Arg>...>::value;
+	};
+
+	template<typename Ret, typename Func, typename... Args>
 	struct is_nothrow_invocable_r
 	{
-		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && is_nothrow_invocable_r<Ret, Func, Args...>::value;
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable_r<Ret, Func, Args>...>::value;
 		constexpr explicit operator bool(){return value;}
 		constexpr bool operator()(){return value;}
 	};
@@ -1256,60 +1100,90 @@ namespace gal
 		constexpr static bool value = impl::is_nothrow_invocable_r<Ret, Func, Args...>::value;
 	};
 
+	template<typename Ret, typename Func, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable_r<Ret, Func, Wrapper<Args...>>
+	{
+		constexpr static bool value = impl::is_nothrow_invocable_r<Ret, Func, Args...>::value;
+	};
+
 	template<typename Ret, typename Func, typename Arg>
 	struct is_nothrow_invocable_r<Ret, Func, Arg>
 	{
 		constexpr static bool value = impl::is_nothrow_invocable_r<Ret, Func, Arg>::value;
 	};
 
-	template<typename Ret, typename Func, typename... Funcs, typename... Args>
-	struct is_nothrow_invocable_r<Ret, wrap_type<Func, Funcs...>, wrap_type<Args...>>
+	template<typename Ret, typename... Funcs, typename... Args>
+	struct is_nothrow_invocable_r<Ret, wrap_type<Funcs...>, wrap_type<Args...>>
 	{
-		// todo: test **
-		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Args...>::value && is_nothrow_invocable_r<Ret, Funcs..., Args...>::value;
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable_r<Ret, Funcs, Args...>...>::value;
 	};
 
-	template<typename Ret, typename Func, typename... Funcs, typename Arg>
-	struct is_nothrow_invocable_r<Ret, wrap_type<Func, Funcs...>, Arg>
+	template<typename Ret, typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable_r<Ret, Wrapper<Funcs...>, Wrapper<Args...>>
 	{
-		// todo: test *
-		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && is_nothrow_invocable_r<Ret, Funcs..., Arg>::value;
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable_r<Ret, Funcs, Args...>...>::value;
+	};
+
+	template<typename Ret, typename... Funcs, typename Arg>
+	struct is_nothrow_invocable_r<Ret, wrap_type<Funcs...>, Arg>
+	{
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable_r<Ret, Funcs, Arg>...>::value;
+	};
+
+	template<typename Ret, typename... Funcs, typename Arg, template<typename...> class Wrapper>
+	struct is_nothrow_invocable_r<Ret, Wrapper<Funcs...>, Arg>
+	{
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable_r<Ret, Funcs, Arg>...>::value;
 	};
 
 	template<typename Ret, typename Func, typename... Funcs, typename Arg, typename... Args>
 	struct is_nothrow_invocable_r<Ret, wrap_type<Func, Funcs...>, wrap_type<Arg, Args...>>
 	{
-		// todo: test *
-		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && (is_nothrow_invocable_r<Ret, Funcs, Args>::value && ...);
+		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_nothrow_invocable_r<Ret, Funcs, Args>...>::value;
 	};
 
-	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename Arg, typename... Args>
-	struct is_nothrow_invocable_r<wrap_type<Ret, Rets...>, wrap_type<Func, Funcs...>, wrap_type<Arg, Args...>>
+	template<typename Ret, typename Func, typename... Funcs, typename Arg, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable_r<Ret, Wrapper<Func, Funcs...>, Wrapper<Arg, Args...>>
 	{
-		// todo: test **
-		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && (is_nothrow_invocable_r<Rets, Funcs, Args>::value && ...);
+		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_nothrow_invocable_r<Ret, Funcs, Args>...>::value;
+	};
+
+	template<typename... Rets, typename... Funcs, typename... Args>
+	struct is_nothrow_invocable_r<wrap_type<Rets...>, wrap_type<Funcs...>, wrap_type<Args...>>
+	{
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable_r<Rets, Funcs, Args>...>::value;
+	};
+
+	template<typename... Rets, typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable_r<Wrapper<Rets...>, Wrapper<Funcs...>, Wrapper<Args...>>
+	{
+		constexpr static bool value = impl::conjunction<is_nothrow_invocable_r<Rets, Funcs, Args>...>::value;
 	};
 
 	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename... Args>
 	struct is_nothrow_invocable_r<wrap_type<Ret, Rets...>, wrap_type<Func, Funcs...>, wrap_type<Args...>>
 	{
-		// todo: test ***
-		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Args...>::value && is_nothrow_invocable_r<Rets..., Funcs..., Args...>::value;
+		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Args...>::value && impl::conjunction<is_nothrow_invocable_r<Rets, Funcs, Args...>...>::value;
+	};
+
+	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename... Args, template<typename...> class Wrapper>
+	struct is_nothrow_invocable_r<Wrapper<Ret, Rets...>, Wrapper<Func, Funcs...>, Wrapper<Args...>>
+	{
+		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Args...>::value && impl::conjunction<is_nothrow_invocable_r<Rets, Funcs, Args...>...>::value;
 	};
 
 	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename Arg>
 	struct is_nothrow_invocable_r<wrap_type<Ret, Rets...>, wrap_type<Func, Funcs...>, Arg>
 	{
-		// todo: test **
-		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && is_nothrow_invocable_r<Rets..., Funcs..., Arg>::value;
+		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_nothrow_invocable_r<Rets, Funcs, Arg>...>::value;
 	};
 
-	template<typename U, typename T, typename... More>
-	constexpr bool is_same_v = is_same<U, T, More...>::value;
-	template<typename Base, typename Derived, typename... More>
-	constexpr bool is_base_of_v = is_base_of<Base, Derived, More...>::value;
-	template<typename From, typename To, typename... More>
-	constexpr bool is_convertible_v = is_convertible<From, To, More...>::value;
+	template<typename Ret, typename... Rets, typename Func, typename... Funcs, typename Arg, template<typename...> class Wrapper>
+	struct is_nothrow_invocable_r<Wrapper<Ret, Rets...>, Wrapper<Func, Funcs...>, Arg>
+	{
+		constexpr static bool value = is_nothrow_invocable_r<Ret, Func, Arg>::value && impl::conjunction<is_nothrow_invocable_r<Rets, Funcs, Arg>...>::value;
+	};
+
 	template<typename Func, typename Arg, typename... Args>
 	constexpr bool is_invocable_v = is_invocable<Func, Arg, Args...>::value;
 	template<typename Func, typename Arg, typename... Args>
@@ -1322,556 +1196,119 @@ namespace gal
 	/**********************************
 	 * Primary type categories
 	 **********************************/
-	template<typename T, typename... More>
-	struct is_void
-	{
-		constexpr static bool value = is_void<T>::value && is_void<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_is(void)
+	gal_code_generator_value_has(void)
 
-	template<typename T>
-	struct is_void<T>
-	{
-		constexpr static bool value = impl::is_void<T>::value;
-	};
+	gal_code_generator_value_is(null_pointer)
+	gal_code_generator_value_has(null_pointer)
 
-	template<typename T, typename... More>
-	struct is_void<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_void<T, More...>::value;
-	};
+	gal_code_generator_value_is(integral)
+	gal_code_generator_value_has(integral)
 
-	template<typename T, typename... More>
-	struct is_null_pointer
-	{
-		constexpr static bool value = is_null_pointer<T>::value && is_null_pointer<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_is(floating_point)
+	gal_code_generator_value_has(floating_point)
 
-	template<typename T>
-	struct is_null_pointer<T>
-	{
-		constexpr static bool value = impl::is_null_pointer<T>::value;
-	};
+	gal_code_generator_value_is(enum)
+	gal_code_generator_value_has(enum)
 
-	template<typename T, typename... More>
-	struct is_null_pointer<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_null_pointer<T, More...>::value;
-	};
+	gal_code_generator_value_is(union)
+	gal_code_generator_value_has(union)
 
-	template<typename T, typename... More>
-	struct is_integral
-	{
-		constexpr static bool value = is_integral<T>::value && is_integral<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_is(class)
+	gal_code_generator_value_has(class)
 
-	template<typename T>
-	struct is_integral<T>
-	{
-		constexpr static bool value = impl::is_integral<T>::value;
-	};
+	gal_code_generator_value_is(function)
+	gal_code_generator_value_has(function)
 
-	template<typename T, typename... More>
-	struct is_integral<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_integral<T, More...>::value;
-	};
+	gal_code_generator_value_is(pointer)
+	gal_code_generator_value_has(pointer)
 
-	template<typename T, typename... More>
-	struct is_floating_point
-	{
-		constexpr static bool value = is_floating_point<T>::value && is_floating_point<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_is(lvalue_reference)
+	gal_code_generator_value_has(lvalue_reference)
 
-	template<typename T>
-	struct is_floating_point<T>
-	{
-		constexpr static bool value = impl::is_floating_point<T>::value;
-	};
+	gal_code_generator_value_is(rvalue_reference)
+	gal_code_generator_value_has(rvalue_reference)
 
-	template<typename T, typename... More>
-	struct is_floating_point<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_floating_point<T, More...>::value;
-	};
+	gal_code_generator_value_is(member_object_pointer)
+	gal_code_generator_value_has(member_object_pointer)
 
-	template<typename T, typename... More>
-	struct is_enum
-	{
-		constexpr static bool value = is_enum<T>::value && is_enum<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_enum<T>
-	{
-		constexpr static bool value = impl::is_enum<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_enum<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_enum<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_union
-	{
-		constexpr static bool value = is_union<T>::value && is_union<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_union<T>
-	{
-		constexpr static bool value = impl::is_union<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_union<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_union<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_class
-	{
-		constexpr static bool value = is_class<T>::value && is_class<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_class<T>
-	{
-		constexpr static bool value = impl::is_class<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_class<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_class<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_function
-	{
-		constexpr static bool value = is_function<T>::value && is_function<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_function<T>
-	{
-		constexpr static bool value = impl::is_function<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_function<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_function<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_pointer
-	{
-		constexpr static bool value = is_pointer<T>::value && is_pointer<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_pointer<T>
-	{
-		constexpr static bool value = impl::is_pointer<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_pointer<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_pointer<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_lvalue_reference
-	{
-		constexpr static bool value = is_lvalue_reference<T>::value && is_lvalue_reference<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_lvalue_reference<T>
-	{
-		constexpr static bool value = impl::is_lvalue_reference<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_lvalue_reference<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_lvalue_reference<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_rvalue_reference
-	{
-		constexpr static bool value = is_rvalue_reference<T>::value && is_rvalue_reference<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_rvalue_reference<T>
-	{
-		constexpr static bool value = impl::is_rvalue_reference<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_rvalue_reference<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_rvalue_reference<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_member_object_pointer
-	{
-		constexpr static bool value = is_member_object_pointer<T>::value && is_member_object_pointer<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_member_object_pointer<T>
-	{
-		constexpr static bool value = impl::is_member_object_pointer<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_member_object_pointer<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_member_object_pointer<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_member_function_pointer
-	{
-		constexpr static bool value = is_member_function_pointer<T>::value && is_member_function_pointer<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_member_function_pointer<T>
-	{
-		constexpr static bool value = impl::is_member_function_pointer<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_member_function_pointer<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_member_function_pointer<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	constexpr bool is_void_v = is_void<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_null_pointer_v = is_null_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_integral_v = is_integral<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_floating_point_v = is_floating_point<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_enum_v = is_enum<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_union_v = is_union<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_class_v = is_class<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_function_v = is_function<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_pointer_v = is_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_lvalue_reference_v = is_lvalue_reference<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_rvalue_reference_v = is_rvalue_reference<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_member_object_pointer_v = is_member_object_pointer<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_member_function_pointer_v = is_member_function_pointer<T, More...>::value;
+	gal_code_generator_value_is(member_function_pointer)
+	gal_code_generator_value_has(member_function_pointer)
 
 	/**********************************
 	 * Composite type categories
 	 **********************************/
-	template<typename T, typename... More>
-	struct is_fundamental
-	{
-		constexpr static bool value = is_fundamental<T>::value && is_fundamental<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_is(fundamental)
+	gal_code_generator_value_has(fundamental)
 
-	template<typename T>
-	struct is_fundamental<T>
-	{
-		constexpr static bool value =impl::is_fundamental<T>::value;
-	};
+	gal_code_generator_value_is(arithmetic)
+	gal_code_generator_value_has(arithmetic)
 
-	template<typename T, typename... More>
-	struct is_fundamental<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_fundamental<T, More...>::value;
-	};
+	gal_code_generator_value_is(scalar)
+	gal_code_generator_value_has(scalar)
 
-	template<typename T, typename... More>
-	struct is_arithmetic
-	{
-		constexpr static bool value = is_arithmetic<T>::value && is_arithmetic<More...>::value;
-	};
+	gal_code_generator_value_is(object)
+	gal_code_generator_value_has(object)
 
-	template<typename T>
-	struct is_arithmetic<T>
-	{
-		constexpr static bool value = impl::is_arithmetic<T>::value;
-	};
+	gal_code_generator_value_is(compound)
+	gal_code_generator_value_has(compound)
 
-	template<typename T, typename... More>
-	struct is_arithmetic<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_arithmetic<T, More...>::value;
-	};
+	gal_code_generator_value_is(reference)
+	gal_code_generator_value_has(reference)
 
-	template<typename T, typename... More>
-	struct is_scalar
-	{
-		constexpr static bool value = is_scalar<T>::value && is_scalar<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_scalar<T>
-	{
-		constexpr static bool value = impl::is_scalar<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_scalar<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_scalar<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_object
-	{
-		constexpr static bool value = is_object<T>::value && is_object<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_object<T>
-	{
-		constexpr static bool value = impl::is_object<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_object<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_object<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_compound
-	{
-		constexpr static bool value = is_compound<T>::value && is_compound<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_compound<T>
-	{
-		constexpr static bool value = impl::is_compound<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_compound<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_compound<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_reference
-	{
-		constexpr static bool value = is_reference<T>::value && is_reference<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_reference<T>
-	{
-		constexpr static bool value = impl::is_reference<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_reference<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_reference<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_member_pointer
-	{
-		constexpr static bool value = is_member_pointer<T>::value && is_member_pointer<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_member_pointer<T>
-	{
-		constexpr static bool value = impl::is_member_pointer<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_member_pointer<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_member_pointer<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	constexpr bool is_fundamental_v = is_fundamental<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_arithmetic_v = is_arithmetic<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_scalar_v = is_scalar<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_object_v = is_object<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_compound_v = is_compound<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_reference_v = is_reference<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_member_pointer_v = is_member_pointer<T, More...>::value;
+	gal_code_generator_value_is(member_pointer)
+	gal_code_generator_value_has(member_pointer)
 
 	/**********************************
 	 * Type properties
 	 **********************************/
-	template<typename T, typename... More>
-	struct is_const
+	gal_code_generator_value_is(const)
+	gal_code_generator_value_has(const)
+
+	gal_code_generator_value_is(volatile)
+	gal_code_generator_value_has(volatile)
+
+	gal_code_generator_value_is(trivial)
+	gal_code_generator_value_has(trivial)
+
+	gal_code_generator_value_is(trivially_copyable)
+	gal_code_generator_value_has(trivially_copyable)
+
+	gal_code_generator_value_is(standard_layout)
+	gal_code_generator_value_has(standard_layout)
+
+//	gal_code_generator_value_is(unique_object_representations)
+//	gal_code_generator_value_has(unique_object_representations)
+	template<typename... T>
+	struct is_unique_object_representations
 	{
-		constexpr static bool value = is_const<T>::value && is_const<More...>::value;
+		constexpr static bool value = impl::conjunction<is_unique_object_representations<T>...>::value;
 		constexpr explicit operator bool(){return value;}
 		constexpr bool operator()(){return value;}
 	};
 
 	template<typename T>
-	struct is_const<T>
+	struct is_unique_object_representations<T>
 	{
-		constexpr static bool value = impl::is_const<T>::value;
+		constexpr static bool value = impl::has_unique_object_representations<T>::value;
 	};
 
-	template<typename T, typename... More>
-	struct is_const<wrap_type<T, More...>>
+	template<typename... T>
+	struct is_unique_object_representations<wrap_type<T...>>
 	{
-		constexpr static bool value = is_const<T, More...>::value;
+		constexpr static bool value = is_unique_object_representations<T...>::value;
 	};
 
-	template<typename T, typename... More>
-	struct is_volatile
+	template<typename... T, template<typename...> class Wrapper>
+	struct is_unique_object_representations<Wrapper<T...>>
 	{
-		constexpr static bool value = is_volatile<T>::value && is_volatile<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
+		constexpr static bool value = is_unique_object_representations<T...>::value;
 	};
 
-	template<typename T>
-	struct is_volatile<T>
-	{
-		constexpr static bool value = impl::is_volatile<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_volatile<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_volatile<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_trivial
-	{
-		constexpr static bool value = is_trivial<T>::value && is_trivial<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_trivial<T>
-	{
-		constexpr static bool value = impl::is_trivial<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_trivial<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_trivial<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_trivial_copyable
-	{
-		constexpr static bool value = is_trivial_copyable<T>::value && is_trivial_copyable<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_trivial_copyable<T>
-	{
-		constexpr static bool value = impl::is_trivially_copyable<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_trivial_copyable<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_trivial_copyable<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_standard_layout
-	{
-		constexpr static bool value = is_standard_layout<T>::value && is_standard_layout<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_standard_layout<T>
-	{
-		constexpr static bool value = impl::is_standard_layour<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_standard_layout<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_standard_layout<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
+	template<typename... T>
 	struct has_unique_object_representations
 	{
-		constexpr static bool value = has_unique_object_representations<T>::value && has_unique_object_representations<More...>::value;
+		constexpr static bool value = impl::disjunction<has_unique_object_representations<T>...>::value;
 		constexpr explicit operator bool(){return value;}
 		constexpr bool operator()(){return value;}
 	};
@@ -1882,178 +1319,38 @@ namespace gal
 		constexpr static bool value = impl::has_unique_object_representations<T>::value;
 	};
 
-	template<typename T, typename... More>
-	struct has_unique_object_representations<wrap_type<T, More...>>
+	template<typename... T>
+	struct has_unique_object_representations<wrap_type<T...>>
 	{
-		constexpr static bool value = has_unique_object_representations<T, More...>::value;
+		constexpr static bool value = has_unique_object_representations<T...>::value;
 	};
 
-	template<typename T, typename... More>
-	struct is_empty
+	template<typename... T, template<typename...> class Wrapper>
+	struct has_unique_object_representations<Wrapper<T...>>
 	{
-		constexpr static bool value = is_empty<T>::value && is_empty<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
+		constexpr static bool value = has_unique_object_representations<T...>::value;
 	};
 
-	template<typename T>
-	struct is_empty<T>
-	{
-		constexpr static bool value = impl::is_empty<T>::value;
-	};
+	gal_code_generator_value_is(empty)
+	gal_code_generator_value_has(empty)
 
-	template<typename T, typename... More>
-	struct is_empty<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_empty<T, More...>::value;
-	};
+	gal_code_generator_value_is(polymorphic)
+	gal_code_generator_value_has(polymorphic)
 
-	template<typename T, typename... More>
-	struct is_polymorphic
-	{
-		constexpr static bool value = is_polymorphic<T>::value && is_polymorphic<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_is(abstract)
+	gal_code_generator_value_has(abstract)
 
-	template<typename T>
-	struct is_polymorphic<T>
-	{
-		constexpr static bool value = impl::is_polymorphic<T>::value;
-	};
+	gal_code_generator_value_is(final)
+	gal_code_generator_value_has(final)
 
-	template<typename T, typename... More>
-	struct is_polymorphic<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_polymorphic<T, More...>::value;
-	};
+	gal_code_generator_value_is(aggregate)
+	gal_code_generator_value_has(aggregate)
 
-	template<typename T, typename... More>
-	struct is_abstract
-	{
-		constexpr static bool value = is_abstract<T>::value && is_abstract<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
+	gal_code_generator_value_is(signed)
+	gal_code_generator_value_has(signed)
 
-	template<typename T>
-	struct is_abstract<T>
-	{
-		constexpr static bool value = impl::is_abstract<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_abstract<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_abstract<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_final
-	{
-		constexpr static bool value = is_final<T>::value && is_final<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_final<T>
-	{
-		constexpr static bool value = impl::is_final<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_final<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_final<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_aggregate
-	{
-		constexpr static bool value = is_aggregate<T>::value && is_aggregate<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_aggregate<T>
-	{
-		constexpr static bool value = impl::is_aggregate<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_aggregate<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_aggregate<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_signed
-	{
-		constexpr static bool value = is_signed<T>::value && is_signed<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_signed<T>
-	{
-		constexpr static bool value = impl::is_signed<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_signed<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_signed<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_unsigned
-	{
-		constexpr static bool value = is_unsigned<T>::value && is_unsigned<More...>::value;
-		constexpr explicit operator bool(){return value;}
-		constexpr bool operator()(){return value;}
-	};
-
-	template<typename T>
-	struct is_unsigned<T>
-	{
-		constexpr static bool value = impl::is_unsigned<T>::value;
-	};
-
-	template<typename T, typename... More>
-	struct is_unsigned<wrap_type<T, More...>>
-	{
-		constexpr static bool value = is_unsigned<T, More...>::value;
-	};
-
-	template<typename T, typename... More>
-	constexpr bool is_const_v = is_const<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_volatile_v = is_volatile<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_trivial_v = is_trivial<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_trivial_copyable_v = is_trivial_copyable<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_standard_layout_v = is_standard_layout<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool has_unique_object_representations_v = has_unique_object_representations<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_empty_v = is_empty<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_polymorphic_v = is_polymorphic<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_abstract_v = is_abstract<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_final_v = is_final<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_aggregate_v = is_aggregate<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_signed_v = is_signed<T, More...>::value;
-	template<typename T, typename... More>
-	constexpr bool is_unsigned_v = is_unsigned<T, More...>::value;
+	gal_code_generator_value_is(unsigned)
+	gal_code_generator_value_has(unsigned)
 
 	/**********************************
 	 * Supported operations

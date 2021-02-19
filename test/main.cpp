@@ -1,83 +1,13 @@
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <iostream>
 
-#include <support.hpp>
+#include "source/type_trait_test.hpp"
 
 int main()
 {
-	std::cout << std::boolalpha;
-
-	// true true true true
-	gal::print_out(
-			std::cout, " / ", "Test gal_type_traits:\n-->",
-			gal::is_same_v<
-			        gal::wrap_type_t<int, double, float>,
-			                gal::remove_pointer_t<gal::add_const<gal::add_pointer<int, double, float>>>,
-			                        gal::remove_reference_t<int&, double, float&>,
-			                                gal::remove_cv_ref_t<gal::add_const<volatile int, double, volatile float>>
-					>,
-			gal::is_same_v<
-			        gal::remove_cv_ref_t<gal::add_const_t<int&, volatile double, float&>>,
-			                gal::remove_volatile_t<gal::add_volatile_t<int, double, float>>
-					>,
-			gal::is_same_v<
-			        gal::add_cv_t<gal::add_lvalue_reference_t<int, double, float>>,
-			                gal::add_cv_lref_t<int, double, float>>,
-			gal::is_same_v<
-			        gal::add_cv_t<gal::add_rvalue_reference_t<int, double, float>>,
-			                gal::add_cv_rref_t<int, double, float>>
-			) << std::endl;
-
-	// false false false true true
-	gal::print_out(
-			std::cout, " ",
-			gal::is_arithmetic_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_arithmetic_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_arithmetic_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_arithmetic_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_arithmetic_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
-			) << std::endl;
-
-	// false false false true true
-	gal::print_out(
-			std::cout, " ",
-			// todo: why these three result is true?
-			gal::is_convertible_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_convertible_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_convertible_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_convertible_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_convertible_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
-	) << std::endl;
-
-	// false false false true true
-	gal::print_out(
-			std::cout, " ",
-			gal::is_integer_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_integer_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_integer_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_integer_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_integer_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
-	) << std::endl;
-
-	// false false false false true
-	gal::print_out(
-			std::cout, " ",
-			gal::is_same_v<int, gal::remove_const_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_same_v<int, gal::remove_volatile_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_same_v<int, gal::remove_cv_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_same_v<int, gal::remove_reference_t<const int, const int&, const volatile int, const volatile int&>>,
-			gal::is_same_v<int, gal::remove_cv_ref_t<const int, const int&, const volatile int, const volatile int&>>
-	) << std::endl;
-
-	gal::print_out(
-			std::cout, " ",
-			"same tuple:",
-			gal::is_same_v<gal::remove_cv_ref_t<const int, const int&>,
-			        gal::remove_cv_ref_t<const volatile int, const volatile int&>>,
-			gal::is_same_v<gal::remove_cv_ref_t<const int>,
-					gal::remove_cv_ref_t<const volatile int>>
-			) << std::endl;
+	type_trait_test();
 
 	int a = 0;
 	int b = 1;

@@ -19,15 +19,15 @@ CPMAddPackage(
 
 CPMAddPackage(NAME galLibrary SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
 
-# ---- Create standalone executable ----
+# ---- Create test executable ----
+file(GLOB_RECURSE sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/source/*.hpp")
 
 add_executable(
 		${PROJECT_NAME}
+		${sources}
 		main.cpp
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 OUTPUT_NAME "galTest")
 
 target_link_libraries(${PROJECT_NAME} galLibrary::galLibrary cxxopts)
-
-
