@@ -65,18 +65,46 @@ namespace type_trait
 
 	class Polymorphic1
 	{
+	public:
 		[[maybe_unused]] virtual void foo() = 0;
 	};
 	class Polymorphic2
 	{
+	public:
 		[[maybe_unused]] virtual void foo() {return;}
+		virtual ~Polymorphic2() = default;
 	};
 	class Polymorphic3 final : public Polymorphic1
 	{
+	public:
 		void foo() override {return;}
 	};
 	class Polymorphic4 : public Polymorphic2 {};
 	class Polymorphic5 : public Polymorphic1 {};
+
+	class Foo
+	{
+		[[maybe_unused]] int v1;
+		[[maybe_unused]] double v2;
+	public:
+		Foo(int n) : v1(n), v2() {}
+		Foo(int n, double f) noexcept : v1(n), v2(f) {}
+	};
+
+	struct Ex1
+	{
+		[[maybe_unused]] std::string str;
+	};
+	struct Ex3;
+	struct Ex2
+	{
+		[[maybe_unused]] int n;
+		Ex2() = default;
+	};
+	struct Ex3
+	{
+		[[maybe_unused]] int n;
+	};
 }
 
 void type_trait_test()
@@ -120,6 +148,7 @@ void type_trait_test()
 	gal::print_out(
 			std::cout, " ",
 			"base_of convertible invocable nothrow_invocable invocable_r nothrow_invocable_r: (result should be true)\n",
+			// a2b --> <U, T...> --> <U, T1> && <U, T2> && <U, T3> && ...
 			gal::is_base_of_v<B, D1, D2, D3, D11>,
 			gal::is_convertible_v<E, B, D1, D2, D3, D11>,
 			// for some design reasons, you must wrap multiple parameters of a call
@@ -275,6 +304,83 @@ void type_trait_test()
 			"copy_assignable trivially_copy_assignable nothrow_copy_assignable\n"
 			"move_assignable trivially_move_assignable nothrow_move_assignable\n"
 			"destructible trivially_destructible nothrow_destructible virtual_destructor\n"
-			"swappable_with swappable nothrow_swappable_with nothrow_swappable: (result should be true)\n"
+			"swappable_with swappable nothrow_swappable_with nothrow_swappable: (result should be true)\n",
+
+			gal::is_constructible_v<Foo, int, gal::wrap_type<int, double>, Foo&, Foo&&>,
+	        gal::is_trivially_constructible_v<Foo, Foo&, Foo&&>,
+            gal::is_nothrow_constructible_v<Foo, gal::wrap_type<int, double>>,
+
+			gal::is_default_constructible_v<Ex1, Ex2, Ex3>,
+	        gal::is_trivially_default_constructible_v<Ex2, Ex3>,
+            gal::is_nothrow_default_constructible_v<Ex2, Ex3>,
+
+			gal::is_copy_constructible_v<Ex1, Ex2, Ex3>,
+            gal::is_trivially_copy_constructible_v<Ex2, Ex3>,
+            gal::is_nothrow_copy_constructible_v<Ex2, Ex3>,
+
+			gal::is_move_constructible_v<Ex1, Ex2, Ex3>,
+			gal::is_trivially_move_constructible_v<Ex2, Ex3>,
+			gal::is_nothrow_move_constructible_v<Ex1, Ex2, Ex3>,
+
+			// b2a --> <U, T...> --> <T1, U> && <T2, U> && <T3, U> ...
+			gal::is_assignable_v<Foo, Foo, Foo&, Foo&&>,
+	        gal::is_trivially_assignable_v<
+	                gal::wrap_type_t<Foo, const Ex3&>,
+	                gal::wrap_type<
+	                        gal::wrap_type_t<Foo, Foo&, Foo&&>,
+							gal::wrap_type_t<Ex3, Ex3&, Ex3&&>
+							>
+					>,
+			gal::is_nothrow_assignable_v<double, int&, double&, float&>,
+
+			gal::is_copy_assignable_v<Foo, Foo&, Foo&&>,
+	        gal::is_trivially_copy_assignable_v<Foo, Foo&, Foo&&>,
+            gal::is_nothrow_copy_assignable_v<Foo, Foo&, Foo&&>,
+
+			gal::is_move_assignable_v<Foo, Foo&, Foo&&>,
+			gal::is_trivially_move_assignable_v<Foo, Foo&, Foo&&>,
+			gal::is_nothrow_move_assignable_v<Foo, Foo&, Foo&&>,
+
+			gal::is_destructible_v<
+			        E, B, D1, D2, D3, D11,
+					Union1, Union2,
+					Pod1, Pod2, Pod3,
+					Polymorphic1, Polymorphic2, Polymorphic3, Polymorphic4, Polymorphic5,
+					Foo, Ex1, Ex2, Ex3
+					>,
+			gal::is_trivially_destructible_v<
+					E, B, D1, D2, D3, D11,
+					Union1,
+					Pod1, Pod2, Pod3,
+					Polymorphic1, Polymorphic3, Polymorphic5,
+					Foo, Ex2, Ex3
+			>,
+			gal::is_nothrow_destructible_v<
+					E, B, D1, D2, D3, D11,
+					Union1, Union2,
+					Pod1, Pod2, Pod3,
+					Polymorphic1, Polymorphic2, Polymorphic3, Polymorphic4, Polymorphic5,
+					Foo, Ex1, Ex2, Ex3
+			>,
+			gal::is_virtual_destructor_v<Polymorphic2, Polymorphic4>,
+
+			// todo: need more test
+			gal::is_swappable_with_v<gal::wrap_type_t<int&, volatile double&>, gal::wrap_type_t<int&, volatile double&>>,
+			gal::is_swappable_v<
+					E, B, D1, D2, D3, D11,
+					Union1, Union2,
+					Pod1, Pod2, Pod3,
+					Polymorphic2, Polymorphic3, Polymorphic4,
+					Foo, Ex1, Ex2, Ex3
+					>,
+			// todo: need more test
+			gal::is_nothrow_swappable_with_v<gal::wrap_type_t<int&, volatile double&>, gal::wrap_type_t<int&, volatile double&>>,
+			gal::is_nothrow_swappable_v<
+					E, B, D1, D2, D3, D11,
+					Union1, Union2,
+					Pod1, Pod2, Pod3,
+					Polymorphic2, Polymorphic3, Polymorphic4,
+					Foo, Ex1, Ex2, Ex3
+			>
 	) << "\n"  << std::endl;
 }
