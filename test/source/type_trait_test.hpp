@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include <gal_support.hpp>
 #include <gal_type_traits.hpp>
+#include <gal_algorithm.hpp>
 
 namespace type_trait
 {
