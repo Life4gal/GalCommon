@@ -1,12 +1,14 @@
 #ifndef GALLIBRARY_ALGORITHM_HPP
 #define GALLIBRARY_ALGORITHM_HPP
 
+#include <gal_type_traits.hpp>
+
 namespace gal
 {
 	// Determine whether all data meets the conditions
 	// such as
 	//      bool less_than_42 = unary_determine([](auto& val){return val < 42;}, a, b, c, d, e, f);
-	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T>>>
+	template<typename Pred, typename T, typename... More, typename = gal::enable_if_t<gal::is_invocable_v<Pred, T, More...>>>
 	constexpr bool unary_determine(Pred pred, T&& t, More&&... more)
 	{
 		if constexpr (sizeof...(more) == 0)
@@ -22,7 +24,7 @@ namespace gal
 	// Determine whether all data meets the conditions
 	// such as
 	//      bool ascending = binary_determine([](auto& val1, auto& val2){return val2 > val2;}, a, b, c, d, e, f);
-	template<typename Pred, typename A, typename B, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, A, B>>>
+	template<typename Pred, typename A, typename B, typename... More, typename = gal::enable_if_t<gal::is_invocable_v<Pred, gal::wrap_type_t<A, B>>>>
 	constexpr bool binary_determine(Pred pred, A&& a, B&& b, More&&... more)
 	{
 		if constexpr (sizeof...(more) == 0)
@@ -39,7 +41,7 @@ namespace gal
 	// such as
 	//      auto find_42 = unary_process([](auto& val){return val == 42;}, 42, a, b, c, d, e, f);
 	// if no matching value exist, return default value
-	template<typename Pred, typename U, typename T, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T>>>
+	template<typename Pred, typename U, typename T, typename... More, typename = gal::enable_if_t<gal::is_invocable_v<Pred, T, More...>>>
 	constexpr decltype(auto) unary_process(Pred pred, U&& default_value, T&& t, More&&... more)
 	{
 		if(pred(t))
@@ -62,7 +64,7 @@ namespace gal
 	// such as
 	//      auto find_max = binary_process([](auto& val1, auto& val2){return val1 > val2 ? val1 : val2;}, a, b, c, d, e, f);
 	// return the best matching value
-	template<typename Pred, typename A, typename B, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, A, B>>>
+	template<typename Pred, typename A, typename B, typename... More, typename = gal::enable_if_t<gal::is_invocable_v<Pred, gal::wrap_type_t<A, B>>>>
 	constexpr decltype(auto) binary_process(Pred pred, A&& a, B&& b, More&&... more)
 	{
 		if constexpr (sizeof...(more) == 0)
@@ -80,7 +82,7 @@ namespace gal
 	// invoke pred with given parameter
 	// such as
 	//      unary_invoke([](auto& val){if(val > 42) val = 42;}, a, b, c, d, e, f);
-	template<typename Pred, typename T, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, T>>>
+	template<typename Pred, typename T, typename... More, typename = gal::enable_if_t<gal::is_invocable_v<Pred, T, More...>>>
 	constexpr void unary_invoke(Pred pred, T&& t, More&&... more)
 	{
 		pred(std::forward<T>(t));
@@ -97,7 +99,7 @@ namespace gal
 	// invoke pred with given parameter
 	// such as:
 	//      binary_invoke([](auto& val1, auto& val2){auto tmp = val1; val1 = val2; val2 = tmp;}, a, b, c, d, e, f);
-	template<typename Pred, typename A, typename B, typename... More, typename = std::enable_if_t<std::is_invocable_v<Pred, A, B>>>
+	template<typename Pred, typename A, typename B, typename... More, typename = gal::enable_if_t<gal::is_invocable_v<Pred, gal::wrap_type_t<A, B>>>>
 	constexpr void binary_invoke(Pred pred, A&& a, B&& b, More&&... more)
 	{
 		pred(std::forward<A>(a), std::forward<B>(b));
@@ -111,44 +113,44 @@ namespace gal
 		}
 	}
 
-	template<typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...>>>
+	template<typename T, typename... More, typename = gal::enable_if_t<gal::is_arithmetic_v<T, More...>>>
 	constexpr T max(T t, More... more)
 	{
 		return binary_process([](const auto& a, const auto& b){return a > b ? a : b;}, t, more...);
 	}
 
-	template<typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...>>>
+	template<typename T, typename... More, typename = gal::enable_if_t<gal::is_arithmetic_v<T, More...>>>
 	constexpr T min(T t, More... more)
 	{
 		return binary_process([](const auto& a, const auto& b){return b > a ? a : b;}, t, more...);
 	}
 
-	template<typename Max, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...>>>
+	template<typename Max, typename T, typename... More, typename = gal::enable_if_t<gal::is_arithmetic_v<T, More...> && gal::is_convertible_v<Max, T, More...>>>
 	constexpr void clamp_max(Max max, T& val, More&... more)
 	{
 		unary_invoke([max](auto& val){if(val > max) val = max;}, val, more...);
 	}
 
-	template<typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Min, T, More...>>>
+	template<typename Min, typename T, typename... More, typename = gal::enable_if_t<gal::is_arithmetic_v<T, More...> && gal::is_convertible_v<Min, T, More...>>>
 	constexpr void clamp_min(Min min, T& val, More&... more)
 	{
 		unary_invoke([min](auto& val){if(min > val) val = min;}, val, more...);
 	}
 
-	template<typename Max, typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...> && is_convertible_v<Min, T, More...>>>
+	template<typename Max, typename Min, typename T, typename... More, typename = gal::enable_if_t<is_arithmetic_v<T, More...> && gal::is_convertible_v<gal::wrap_type_t<Max, Min>, gal::wrap_type_t<gal::wrap_type<T, More...>, gal::wrap_type<T, More...>>>>>
 	constexpr void clamp(Max max, Min min, T& val, More&... more)
 	{
 		clamp_max(max, val, more...);
 		clamp_min(min, val, more...);
 	}
 
-	template<typename Max, typename Min, typename T, typename... More, typename = std::enable_if_t<is_arithmetic_v<T, More...> && is_convertible_v<Max, T, More...> && is_convertible_v<Min, T, More...>>>
+	template<typename Max, typename Min, typename T, typename... More, typename = gal::enable_if_t<is_arithmetic_v<T, More...> && gal::is_convertible_v<gal::wrap_type_t<Max, Min>, gal::wrap_type_t<gal::wrap_type<T, More...>, gal::wrap_type<T, More...>>>>>
 	constexpr bool within(Max max, Min min, T& val, More&... more)
 	{
 		return unary_determine([max, min](const auto& val){return max >= val && val >= min;}, val, more...);
 	}
 
-	template<typename T, typename... More, typename = std::enable_if_t<is_integral_v<T, More...>>>
+	template<typename T, typename... More, typename = gal::enable_if_t<gal::is_integral_v<T, More...>>>
 	constexpr void abs(T& val, More&... more)
 	{
 		unary_invoke(
