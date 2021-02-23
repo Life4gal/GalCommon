@@ -42,6 +42,8 @@ namespace gal
 		char* p = reinterpret_cast<char*>(&number);
 		return p[0] == 1;
 	}
+
+	constexpr auto PI = 3.1415926535897932384626433832795028841971693993751;
 }
 
 #endif
