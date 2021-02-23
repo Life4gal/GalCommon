@@ -1080,6 +1080,10 @@ namespace gal
 	 **********************************/
 	gal_code_generator_type(decay)
 	gal_code_generator_extra_type_type(bool, enable_if)
+	template<bool cond>
+	struct enable_if<cond, void> {
+		using type = typename impl::enable_if<cond, void>::type;
+	};
 	gal_code_generator_extra_type_pick_one_of_two(bool, conditional)
 
 	/**********************************
